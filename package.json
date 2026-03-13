@@ -1,0 +1,37 @@
+{
+  "name": "sg-hdb-resale-dashboard",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx server.ts",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "compression": "^1.8.1",
+    "d3": "^7.9.0",
+    "express": "^5.2.1",
+    "mongodb": "^7.1.0",
+    "posthog-js": "^1.360.1",
+    "posthog-node": "^5.28.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "tsx": "^4.21.0"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.2.1",
+    "@types/compression": "^1.8.1",
+    "@types/d3": "^7.4.3",
+    "@types/express": "^5.0.6",
+    "@types/node": "^20.12.12",
+    "@types/react": "^18.2.37",
+    "@types/react-dom": "^18.2.15",
+    "@vercel/node": "^5.6.15",
+    "@vitejs/plugin-react": "^4.2.0",
+    "tailwindcss": "^4.2.1",
+    "typescript": "^5.2.2",
+    "vite": "^8.0.0"
+  }
+}

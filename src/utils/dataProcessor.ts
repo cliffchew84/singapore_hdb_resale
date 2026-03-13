@@ -1,0 +1,263 @@
+import * as d3 from 'd3';
+import { HdbResaleRecord, BoxPlotStats, Outlier, SummaryStatsData, LineChartDataPoint, BoxPlotMetric, StackedBarChartDataPoint, PRICE_CATEGORIES, DashboardData } from '../types.ts';
+
+const SQM_TO_SQFT_CONVERSION = 10.7639;
+
+/**
+ * Parses a "X years Y months" string into a fractional number of years.
+ * @param leaseStr The string to parse (e.g., "69 years 04 months").
+ * @returns The total number of years, or null if parsing fails.
+ */
+export const parseRemainingLeaseToYears = (leaseStr: string | undefined): number | null => {
+    if (!leaseStr) return null;
+    const match = leaseStr.match(/(\d+)\s+years?(?:\s+(\d+)\s+months?)?/);
+    if (!match) return null;
+    
+    const years = parseInt(match[1], 10);
+    const months = match[2] ? parseInt(match[2], 10) : 0;
+    
+    return years + (months / 12);
+};
+
+export const calculateGlobalLeaseDomain = (records: HdbResaleRecord[]): [number, number] => {
+    if (records.length === 0) return [0, 99];
+    
+    const leaseYears = records
+        .map(r => parseRemainingLeaseToYears(r.remaining_lease))
+        .filter(y => y !== null) as number[];
+        
+    if (leaseYears.length === 0) return [0, 99];
+
+    const minLease = Math.floor(d3.min(leaseYears) ?? 0);
+    const maxLease = Math.ceil(d3.max(leaseYears) ?? 99);
+    
+    return [minLease, maxLease];
+};
+
+/**
+ * Performs a single-pass processing of HDB records to calculate all dashboard statistics.
+ * This is significantly more efficient than calling multiple independent calculation functions.
+ */
+export const processDashboardData = (
+    records: HdbResaleRecord[],
+    xDomain: string[],
+    boxPlotMetric: BoxPlotMetric
+): DashboardData => {
+    // 1. Initialize structures
+    const summary: SummaryStatsData = { count: 0, grossTransactionValue: 0 };
+    const monthMap = new Map<string, {
+        records: {
+            value: number;
+            resale_price: number;
+            flat_type: string;
+            town: string;
+            remaining_lease?: string;
+            floor_area_sqm?: string;
+        }[];
+        prices: number[];
+        psfValues: number[];
+        pricePerLeaseValues: number[];
+        priceCounts: Record<string, number>;
+        totalTransactions: number;
+    }>();
+
+    // Initialize month map with empty structures for all months in xDomain
+    for (const month of xDomain) {
+        monthMap.set(month, {
+            records: [],
+            prices: [],
+            psfValues: [],
+            pricePerLeaseValues: [],
+            priceCounts: { '0-300k': 0, '300-500k': 0, '500-800k': 0, '800k-1m': 0, '>=1m': 0 },
+            totalTransactions: 0
+        });
+    }
+
+    // Global accumulators for summary stats
+    const allPrices: number[] = [];
+    const allPsfValues: number[] = [];
+    const allPricePerLeaseValues: number[] = [];
+    let millionDollarCount = 0;
+
+    // 2. Single pass over records
+    for (const r of records) {
+        const monthData = monthMap.get(r.month);
+        if (!monthData) continue; // Skip records outside xDomain
+
+        const price = parseFloat(r.resale_price);
+        if (isNaN(price)) continue;
+
+        const area_sqm = r.floor_area_sqm ? parseFloat(r.floor_area_sqm) : NaN;
+        const lease_years = parseRemainingLeaseToYears(r.remaining_lease);
+
+        // Calculate metric value for box plot
+        let metricValue: number | null = null;
+        if (boxPlotMetric === 'resale_price') {
+            metricValue = price;
+        } else if (boxPlotMetric === 'price_psf' && !isNaN(area_sqm) && area_sqm > 0) {
+            metricValue = price / (area_sqm * SQM_TO_SQFT_CONVERSION);
+        } else if (boxPlotMetric === 'price_per_lease' && lease_years !== null && lease_years > 0) {
+            metricValue = price / lease_years;
+        }
+
+        // Update global summary accumulators
+        summary.count++;
+        summary.grossTransactionValue! += price;
+        allPrices.push(price);
+        if (price >= 1000000) millionDollarCount++;
+
+        // Update month-specific data
+        monthData.totalTransactions++;
+        monthData.prices.push(price);
+
+        if (metricValue !== null && !isNaN(metricValue)) {
+            monthData.records.push({
+                value: metricValue,
+                resale_price: price,
+                flat_type: r.flat_type,
+                town: r.town,
+                remaining_lease: r.remaining_lease,
+                floor_area_sqm: r.floor_area_sqm
+            });
+        }
+
+        if (!isNaN(area_sqm) && area_sqm > 0) {
+            const psf = price / (area_sqm * SQM_TO_SQFT_CONVERSION);
+            monthData.psfValues.push(psf);
+            allPsfValues.push(psf);
+        }
+
+        if (lease_years !== null && lease_years > 0) {
+            const ppl = price / lease_years;
+            monthData.pricePerLeaseValues.push(ppl);
+            allPricePerLeaseValues.push(ppl);
+        }
+
+        // Price categories for stacked bar
+        if (price < 300000) monthData.priceCounts['0-300k']++;
+        else if (price < 500000) monthData.priceCounts['300-500k']++;
+        else if (price < 800000) monthData.priceCounts['500-800k']++;
+        else if (price < 1000000) monthData.priceCounts['800k-1m']++;
+        else monthData.priceCounts['>=1m']++;
+    }
+
+    // 3. Finalize global summary stats
+    if (summary.count > 0) {
+        allPrices.sort(d3.ascending);
+        allPsfValues.sort(d3.ascending);
+        allPricePerLeaseValues.sort(d3.ascending);
+
+        summary.median = d3.quantile(allPrices, 0.5);
+        summary.min = allPrices[0];
+        summary.max = allPrices[allPrices.length - 1];
+        summary.median_psf = d3.quantile(allPsfValues, 0.5);
+        summary.min_psf = allPsfValues[0];
+        summary.max_psf = allPsfValues[allPsfValues.length - 1];
+        summary.median_price_per_lease = d3.quantile(allPricePerLeaseValues, 0.5);
+        summary.min_price_per_lease = allPricePerLeaseValues[0];
+        summary.max_price_per_lease = allPricePerLeaseValues[allPricePerLeaseValues.length - 1];
+        summary.millionDollarTransactionPercentage = (millionDollarCount / summary.count) * 100;
+    }
+
+    // 4. Process month-specific data for charts
+    const processedData: BoxPlotStats[] = [];
+    const lineChartData: LineChartDataPoint[] = [];
+    const stackedBarChartData: StackedBarChartDataPoint[] = [];
+
+    // Domain trackers
+    let maxBoxPlotValue = 0;
+    let maxTransactionCount = 0;
+    let maxGrossValue = 0;
+    let maxMedianPsf = 0;
+    let maxMedianPPL = 0;
+    let maxMillionDollarPct = 0;
+    let maxStackedBarTotal = 0;
+
+    for (const month of xDomain) {
+        const m = monthMap.get(month)!;
+        if (m.totalTransactions > maxStackedBarTotal) maxStackedBarTotal = m.totalTransactions;
+
+        // Box Plot Stats
+        if (m.records.length >= 5) {
+            const sortedValues = m.records.map(r => r.value).sort(d3.ascending);
+            const q1 = d3.quantile(sortedValues, 0.25) ?? 0;
+            const median = d3.quantile(sortedValues, 0.5) ?? 0;
+            const q3 = d3.quantile(sortedValues, 0.75) ?? 0;
+            const iqr = q3 - q1;
+            const lowerFence = q1 - 1.5 * iqr;
+            const upperFence = q3 + 1.5 * iqr;
+
+            const outliers: Outlier[] = m.records
+                .filter(r => r.value < lowerFence || r.value > upperFence)
+                .map(r => ({
+                    price: r.value,
+                    resale_price: r.resale_price,
+                    flat_type: r.flat_type,
+                    town: r.town,
+                    remaining_lease: r.remaining_lease,
+                    floor_area_sqm: r.floor_area_sqm,
+                }));
+                
+            const nonOutlierValues = m.records.filter(r => r.value >= lowerFence && r.value <= upperFence).map(r => r.value);
+            const min = d3.min(nonOutlierValues) ?? q1;
+            const max = d3.max(nonOutlierValues) ?? q3;
+
+            const monthMax = d3.max([max, ...outliers.map(o => o.price)]) ?? 0;
+            if (monthMax > maxBoxPlotValue) maxBoxPlotValue = monthMax;
+
+            processedData.push({ month, min, q1, median, q3, max, outliers });
+        }
+
+        // Line Chart Point
+        if (m.totalTransactions > 0) {
+            const grossValue = d3.sum(m.prices);
+            const millionCount = m.prices.filter(p => p >= 1000000).length;
+            const millionPct = (millionCount / m.totalTransactions) * 100;
+            
+            m.psfValues.sort(d3.ascending);
+            m.pricePerLeaseValues.sort(d3.ascending);
+            
+            const medianPsf = d3.quantile(m.psfValues, 0.5) ?? 0;
+            const medianPPL = d3.quantile(m.pricePerLeaseValues, 0.5) ?? 0;
+
+            lineChartData.push({
+                month,
+                transactionCount: m.totalTransactions,
+                grossTransactionValue: grossValue,
+                median_psf: medianPsf,
+                median_price_per_lease: medianPPL,
+                millionDollarTransactionPercentage: millionPct
+            });
+
+            // Update domains
+            if (m.totalTransactions > maxTransactionCount) maxTransactionCount = m.totalTransactions;
+            if (grossValue > maxGrossValue) maxGrossValue = grossValue;
+            if (medianPsf > maxMedianPsf) maxMedianPsf = medianPsf;
+            if (medianPPL > maxMedianPPL) maxMedianPPL = medianPPL;
+            if (millionPct > maxMillionDollarPct) maxMillionDollarPct = millionPct;
+        } else {
+            lineChartData.push({ month, transactionCount: undefined, grossTransactionValue: undefined });
+        }
+
+        // Stacked Bar Point
+        stackedBarChartData.push({
+            month,
+            ...m.priceCounts as any,
+            totalTransactions: m.totalTransactions
+        });
+    }
+
+    return {
+        processedData,
+        summaryStats: summary,
+        lineChartData,
+        stackedBarChartData,
+        transactionCountYDomain: [0, maxTransactionCount * 1.2],
+        grossTransactionValueYDomain: [0, maxGrossValue * 1.05],
+        medianPsfYDomain: [0, maxMedianPsf * 1.05],
+        medianPricePerLeaseYDomain: [0, maxMedianPPL * 1.05],
+        millionDollarPercentageYDomain: [0, maxMillionDollarPct * 1.05],
+        stackedBarChartYDomain: [0, maxStackedBarTotal * 1.1],
+        yDomain: [0, maxBoxPlotValue * 1.05]
+    };
+};

@@ -1,0 +1,5 @@
+{
+  "name": "SG HDB Resale Price Dashboard with Vercel",
+  "description": "A dashboard to visualize the monthly distribution of HDB resale flat prices in Singapore using an interactive box plot. Data is sourced from data.gov.sg.",
+  "requestFramePermissions": []
+}
