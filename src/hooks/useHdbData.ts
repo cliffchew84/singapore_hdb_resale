@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import * as d3 from 'd3';
 import { fetchHdbDataByMonth } from '../services/hdbService.ts';
 import { fetchHistoricalData } from '../services/mongoService.ts';
@@ -14,6 +14,9 @@ export const useHdbData = () => {
     const [rawRecords, setRawRecords] = useState<HdbResaleRecord[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [isIncrementalLoading, setIsIncrementalLoading] = useState<boolean>(false);
+    // Ref used as a synchronous concurrency guard. State updates are batched and
+    // not visible to a concurrent call in the same render cycle. isIncrementalLoading
+    // is kept separately to drive UI loading indicators.
     const isLoadingRef = useRef(false);
     const [isDataFullyLoaded, setIsDataFullyLoaded] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
