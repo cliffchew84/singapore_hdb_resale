@@ -2,11 +2,17 @@ import { HdbResaleRecord } from '../types.ts';
 
 export const fetchHistoricalData = async (year: string): Promise<HdbResaleRecord[]> => {
   try {
-    const response = await fetch(`/api/getHistoricalData?year=${year}`);
+    const response = await fetch(`/api/getHistoricalData?year=${encodeURIComponent(year)}`);
 
     if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData.error || 'Failed to fetch historical data');
+      let message = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        message = errorData.error || message;
+      } catch {
+        // non-JSON response body — keep the HTTP status message
+      }
+      throw new Error(message);
     }
 
     return await response.json();
