@@ -19,7 +19,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: 'year parameter is required' });
     }
 
-    const yearInt = parseInt(yearParam, 10);
+    const yearInt = Number(yearParam);
 
     if (isNaN(yearInt) || !VALID_YEARS.includes(yearInt)) {
       return res.status(400).json({ error: `year must be one of: ${VALID_YEARS.join(', ')}` });
@@ -32,8 +32,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const data = await collection.find({ year: yearInt }).toArray();
     console.timeEnd(`[MongoDB Query] hdb_hist_v3 ${yearInt}`);
 
-    // Normalize float fields to strings to match HdbResaleRecord type
-    const normalized = data.map(doc => ({
+    // Normalize float fields to strings and exclude MongoDB _id to match HdbResaleRecord type
+    const normalized = data.map(({ _id, ...doc }) => ({
       ...doc,
       resale_price: String(doc.resale_price),
       floor_area_sqm: String(doc.floor_area_sqm),
