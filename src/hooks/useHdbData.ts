@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import * as d3 from 'd3';
 import { fetchHdbDataByMonth } from '../services/hdbService.ts';
 import { fetchHistoricalData } from '../services/mongoService.ts';
@@ -14,6 +14,7 @@ export const useHdbData = () => {
     const [rawRecords, setRawRecords] = useState<HdbResaleRecord[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [isIncrementalLoading, setIsIncrementalLoading] = useState<boolean>(false);
+    const isLoadingRef = useRef(false);
     const [isDataFullyLoaded, setIsDataFullyLoaded] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [loadingMessage, setLoadingMessage] = useState<string>('Initializing...');
@@ -115,7 +116,7 @@ export const useHdbData = () => {
     // Function to ensure data is loaded for a given range.
     // Routes to MongoDB (year-level) for 2020-2025, HDB API (month-level) for 2026.
     const ensureDataForRange = async (startDate: string, endDate: string) => {
-        if (isIncrementalLoading) return;
+        if (isLoadingRef.current) return;
 
         const requiredMonths = allMonthsToFetch.filter(m => m >= startDate && m <= endDate);
         const loadedMonths = [...new Set(rawRecords.map(r => r.month))];
@@ -126,6 +127,7 @@ export const useHdbData = () => {
         // Group missing months by year
         const missingYears = [...new Set(missingMonths.map(m => m.split('-')[0]))];
 
+        isLoadingRef.current = true;
         setIsIncrementalLoading(true);
         try {
             const allNewRecords: HdbResaleRecord[] = [];
@@ -142,10 +144,13 @@ export const useHdbData = () => {
                     allNewRecords.push(...records);
                 }
             }
-            setRawRecords(prev => [...prev, ...allNewRecords]);
+            const loadedMonthsSet = new Set(loadedMonths);
+            const uniqueNewRecords = allNewRecords.filter(r => !loadedMonthsSet.has(r.month));
+            setRawRecords(prev => [...prev, ...uniqueNewRecords]);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'An unknown error occurred.');
         } finally {
+            isLoadingRef.current = false;
             setIsIncrementalLoading(false);
             setLoadingMessage('');
         }
