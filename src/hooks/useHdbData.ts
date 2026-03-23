@@ -1,7 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import * as d3 from 'd3';
 import { fetchHdbDataByMonth } from '../services/hdbService.ts';
-import { fetchHistoricalData } from '../services/mongoService.ts';
 import { HdbResaleRecord, BoxPlotStats, SummaryStatsData, LineChartDataPoint, BoxPlotMetric, StackedBarChartDataPoint, LineChartMetric, StackedBarChartMode, DashboardData } from '../types.ts';
 import {
     parseRemainingLeaseToYears,
@@ -82,12 +81,6 @@ export const useHdbData = () => {
         return newRecords;
     };
 
-    // Function to fetch a full year of data from MongoDB (2020-2025)
-    const fetchYearFromMongo = async (year: string): Promise<HdbResaleRecord[]> => {
-        setLoadingMessage(`Fetching data for ${year}...`);
-        return await fetchHistoricalData(year);
-    };
-
     // Effect to fetch initial 2026 data
     useEffect(() => {
         const loadInitialData = async () => {
@@ -117,7 +110,6 @@ export const useHdbData = () => {
     }, [allMonthsToFetch]);
 
     // Function to ensure data is loaded for a given range.
-    // Routes to MongoDB (year-level) for 2020-2025, HDB API (month-level) for 2026.
     const ensureDataForRange = async (startDate: string, endDate: string) => {
         if (isLoadingRef.current) return;
 
@@ -127,28 +119,12 @@ export const useHdbData = () => {
 
         if (missingMonths.length === 0) return;
 
-        // Group missing months by year
-        const missingYears = [...new Set(missingMonths.map(m => m.split('-')[0]))];
-
         isLoadingRef.current = true;
         setIsIncrementalLoading(true);
         try {
-            const allNewRecords: HdbResaleRecord[] = [];
-            for (const year of missingYears) {
-                if (year === '2026') {
-                    // HDB API: fetch only the specific missing months
-                    const monthsForYear = missingMonths.filter(m => m.startsWith(year));
-                    const records = await fetchMonths(monthsForYear);
-                    allNewRecords.push(...records);
-                } else {
-                    // MongoDB: fetch the entire year in one call.
-                    // Full year is stored so future range expansions within this year are free.
-                    const records = await fetchYearFromMongo(year);
-                    allNewRecords.push(...records);
-                }
-            }
+            const newRecords = await fetchMonths(missingMonths);
             const loadedMonthsSet = new Set(loadedMonths);
-            const uniqueNewRecords = allNewRecords.filter(r => !loadedMonthsSet.has(r.month));
+            const uniqueNewRecords = newRecords.filter(r => !loadedMonthsSet.has(r.month));
             setRawRecords(prev => [...prev, ...uniqueNewRecords]);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'An unknown error occurred.');

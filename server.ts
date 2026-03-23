@@ -3,7 +3,6 @@ import { createServer as createViteServer } from "vite";
 import compression from "compression";
 
 // Import the Vercel serverless handlers
-import getHistoricalDataHandler from "./api/getHistoricalData";
 import getHdbDataHandler from "./api/getHdbData";
 
 async function startServer() {
@@ -21,10 +20,6 @@ async function startServer() {
   // Mount the Vercel handlers as Express routes
   // We cast req and res to any to bridge the slight type differences 
   // between Express and VercelRequest/VercelResponse
-  app.get("/api/getHistoricalData", async (req, res) => {
-    await getHistoricalDataHandler(req as any, res as any);
-  });
-
   app.get("/api/getHdbData", async (req, res) => {
     await getHdbDataHandler(req as any, res as any);
   });
