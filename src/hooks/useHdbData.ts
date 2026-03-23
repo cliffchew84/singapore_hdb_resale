@@ -74,10 +74,10 @@ export const useHdbData = () => {
     // Function to fetch data for a specific set of months
     const fetchMonths = async (months: string[]) => {
         const newRecords: HdbResaleRecord[] = [];
-        for (const month of months) {
-            setLoadingMessage(`Fetching data for ${month}...`);
-            const monthData = await fetchHdbDataByMonth(month);
-            newRecords.push(...monthData);
+        for (let i = 0; i < months.length; i += 3) {
+            const chunk = months.slice(i, i + 3);
+            const chunkResults = await Promise.all(chunk.map(m => fetchHdbDataByMonth(m)));
+            newRecords.push(...chunkResults.flat());
         }
         return newRecords;
     };
