@@ -44,7 +44,10 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ allMonths, allMon
     const groupedMonths = useMemo(() => {
         const groups: { [year: string]: number[] } = {};
         allMonths.forEach(monthStr => {
-            const [year, month] = monthStr.split('-').map(Number);
+            if (typeof monthStr !== 'string') return;
+            const parts = monthStr.split('-');
+            if (parts.length !== 2) return;
+            const [year, month] = parts.map(Number);
             if (!groups[year]) groups[year] = [];
             groups[year].push(month - 1);
         });

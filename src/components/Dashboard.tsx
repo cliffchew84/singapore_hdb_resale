@@ -41,7 +41,7 @@ interface DashboardProps {
 }
 
 const boxPlotTitles: Record<BoxPlotMetric, string> = {
-  resale_price: 'Monthly Resale Price Distribution',
+  price: 'Monthly Resale Price Distribution',
   price_psf: 'Monthly Price p.s.f. Distribution',
   price_per_lease: 'Monthly Price / Lease Left (Yr) Distribution',
 };
@@ -93,7 +93,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const boxPlotActions = (
     <div className="p-1 bg-slate-100 rounded-lg flex items-stretch space-x-1">
-      <MetricButton onClick={() => setBoxPlotMetric('resale_price')} isActive={boxPlotMetric === 'resale_price'} className="flex-1">
+      <MetricButton onClick={() => setBoxPlotMetric('price')} isActive={boxPlotMetric === 'price'} className="flex-1">
         Resale Price
       </MetricButton>
       <MetricButton onClick={() => setBoxPlotMetric('price_psf')} isActive={boxPlotMetric === 'price_psf'} className="flex-1">

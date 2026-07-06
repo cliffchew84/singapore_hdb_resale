@@ -21,7 +21,7 @@ View your app in AI Studio: https://ai.studio/apps/drive/1vO4PDsjytUSntY1zcnLSAJ
 
 ## Maintenance & Deployment
 
-For detailed instructions on performance optimization and serverless caching strategies, please refer to [MAINTENANCE.md](MAINTENANCE.md).
+For detailed instructions on the DuckDB-Wasm architecture and implementation, please refer to [duckdb-wasm-refactor.md](duckdb-wasm-refactor.md).
 
 ### Deploying to Vercel
 
@@ -33,8 +33,7 @@ When you are ready to push your codebase to Vercel, you need to configure your e
 
 | Variable Name | Description |
 | :--- | :--- |
-| `DATAGOV_API_KEY` | Your Data.gov.sg API key for fetching HDB data. |
-| `MONGO_PASSWORD` | Your MongoDB password (if applicable for historical data). |
+| `VITE_PARQUET_URL` | The Public URL of the HDB Parquet file stored on Cloudflare R2. |
 | `VITE_POSTHOG_KEY` | Your PostHog Project API Key. |
 | `VITE_POSTHOG_HOST` | Your PostHog Host URL (e.g., `https://us.i.posthog.com`). |
 

@@ -8,6 +8,17 @@ export const FLAT_TYPES = [
   'MULTI-GENERATION',
 ];
 
+export const FLAT_TYPE_MAP: Record<string, string> = {
+  '1 ROOM': '1R',
+  '2 ROOM': '2R',
+  '3 ROOM': '3R',
+  '4 ROOM': '4R',
+  '5 ROOM': '5R',
+  'EXECUTIVE': 'E',
+  'MULTI-GENERATION': 'MG',
+  'EXECUTIVE CONDOMINIUM': 'EC',
+};
+
 export const TOWNS = [
   'ANG MO KIO', 'BEDOK', 'BISHAN', 'BUKIT BATOK', 'BUKIT MERAH', 
   'BUKIT PANJANG', 'BUKIT TIMAH', 'CENTRAL AREA', 'CHOA CHU KANG', 

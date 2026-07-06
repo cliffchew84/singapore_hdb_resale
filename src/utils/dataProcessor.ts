@@ -8,9 +8,21 @@ const SQM_TO_SQFT_CONVERSION = 10.7639;
  * @param leaseStr The string to parse (e.g., "69 years 04 months").
  * @returns The total number of years, or null if parsing fails.
  */
-export const parseRemainingLeaseToYears = (leaseStr: string | undefined): number | null => {
-    if (!leaseStr) return null;
-    const match = leaseStr.match(/(\d+)\s+years?(?:\s+(\d+)\s+months?)?/);
+export const parseRemainingLeaseToYears = (lease: string | number | undefined): number | null => {
+    if (lease === undefined || lease === null) return null;
+    
+    if (typeof lease === 'number') {
+        // If the value is <= 120, it's likely already in years (e.g., 95).
+        // If it's > 120, it's likely in months (e.g., 1140).
+        return lease <= 120 ? lease : lease / 12;
+    }
+    
+    if (/^\d+$/.test(lease)) {
+        const val = parseInt(lease, 10);
+        return val <= 120 ? val : val / 12;
+    }
+
+    const match = lease.match(/(\d+)\s+years?(?:\s+(\d+)\s+months?)?/);
     if (!match) return null;
     
     const years = parseInt(match[1], 10);
@@ -23,7 +35,7 @@ export const calculateGlobalLeaseDomain = (records: HdbResaleRecord[]): [number,
     if (records.length === 0) return [0, 99];
     
     const leaseYears = records
-        .map(r => parseRemainingLeaseToYears(r.remaining_lease))
+        .map(r => parseRemainingLeaseToYears(r.lease))
         .filter(y => y !== null) as number[];
         
     if (leaseYears.length === 0) return [0, 99];
@@ -84,17 +96,15 @@ export const processDashboardData = (
         const monthData = monthMap.get(r.month);
         if (!monthData) continue; // Skip records outside xDomain
 
-        const price = parseFloat(r.resale_price);
-        if (isNaN(price)) continue;
-
-        const area_sqm = r.floor_area_sqm ? parseFloat(r.floor_area_sqm) : NaN;
-        const lease_years = parseRemainingLeaseToYears(r.remaining_lease);
+        const price = r.price;
+        const area_sqm = r.area;
+        const lease_years = parseRemainingLeaseToYears(r.lease);
 
         // Calculate metric value for box plot
         let metricValue: number | null = null;
-        if (boxPlotMetric === 'resale_price') {
+        if (boxPlotMetric === 'price') {
             metricValue = price;
-        } else if (boxPlotMetric === 'price_psf' && !isNaN(area_sqm) && area_sqm > 0) {
+        } else if (boxPlotMetric === 'price_psf' && area_sqm > 0) {
             metricValue = price / (area_sqm * SQM_TO_SQFT_CONVERSION);
         } else if (boxPlotMetric === 'price_per_lease' && lease_years !== null && lease_years > 0) {
             metricValue = price / lease_years;
@@ -114,14 +124,14 @@ export const processDashboardData = (
             monthData.records.push({
                 value: metricValue,
                 resale_price: price,
-                flat_type: r.flat_type,
+                flat_type: r.type,
                 town: r.town,
-                remaining_lease: r.remaining_lease,
-                floor_area_sqm: r.floor_area_sqm
+                remaining_lease: r.lease.toString(),
+                floor_area_sqm: r.area.toString()
             });
         }
 
-        if (!isNaN(area_sqm) && area_sqm > 0) {
+        if (area_sqm > 0) {
             const psf = price / (area_sqm * SQM_TO_SQFT_CONVERSION);
             monthData.psfValues.push(psf);
             allPsfValues.push(psf);
@@ -178,7 +188,7 @@ export const processDashboardData = (
         if (m.totalTransactions > maxStackedBarTotal) maxStackedBarTotal = m.totalTransactions;
 
         // Box Plot Stats
-        if (m.records.length >= 5) {
+        if (m.records.length >= 1) {
             const sortedValues = m.records.map(r => r.value).sort(d3.ascending);
             const q1 = d3.quantile(sortedValues, 0.25) ?? 0;
             const median = d3.quantile(sortedValues, 0.5) ?? 0;
@@ -190,19 +200,19 @@ export const processDashboardData = (
             const outliers: Outlier[] = m.records
                 .filter(r => r.value < lowerFence || r.value > upperFence)
                 .map(r => ({
-                    price: r.value,
-                    resale_price: r.resale_price,
-                    flat_type: r.flat_type,
+                    metricValue: r.value,
+                    price: r.resale_price,
+                    type: r.flat_type,
                     town: r.town,
-                    remaining_lease: r.remaining_lease,
-                    floor_area_sqm: r.floor_area_sqm,
+                    lease: r.remaining_lease,
+                    area: r.floor_area_sqm,
                 }));
                 
             const nonOutlierValues = m.records.filter(r => r.value >= lowerFence && r.value <= upperFence).map(r => r.value);
             const min = d3.min(nonOutlierValues) ?? q1;
             const max = d3.max(nonOutlierValues) ?? q3;
 
-            const monthMax = d3.max([max, ...outliers.map(o => o.price)]) ?? 0;
+            const monthMax = d3.max([max, ...outliers.map(o => o.metricValue)]) ?? 0;
             if (monthMax > maxBoxPlotValue) maxBoxPlotValue = monthMax;
 
             processedData.push({ month, min, q1, median, q3, max, outliers });
@@ -242,7 +252,7 @@ export const processDashboardData = (
         // Stacked Bar Point
         stackedBarChartData.push({
             month,
-            ...m.priceCounts as any,
+            ...m.priceCounts,
             totalTransactions: m.totalTransactions
         });
     }

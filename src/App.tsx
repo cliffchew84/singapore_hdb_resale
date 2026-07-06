@@ -76,7 +76,6 @@ const FilterSummary: React.FC<FilterSummaryProps> = ({
         <div className="flex items-center gap-4 flex-wrap">
           {!isDefaultDateRange && (
             <FilterPill 
-              label="Selected Period" 
               value={`${formatMonthYear(selectedDateRange[0])} - ${formatMonthYear(selectedDateRange[1])}`} 
             />
           )}

@@ -137,24 +137,6 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     </button>
                                 </div>
 
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Selected Period</label>
-                                <div className="grid grid-cols-4 gap-2 mb-4">
-                                    {Array.from({ length: 2026 - 2020 + 1 }, (_, i) => (2026 - i).toString()).map(year => (
-                                        <QuickFilterButton
-                                            key={year}
-                                            onClick={() => onYearButtonClick(year)}
-                                            isActive={activeYears.includes(year)}
-                                        >
-                                            {year}
-                                        </QuickFilterButton>
-                                    ))}
-                                    <button
-                                        onClick={() => setShowContactModal(true)}
-                                        className="px-3 py-1 text-xs font-semibold rounded-full transition-colors whitespace-nowrap bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200"
-                                    >
-                                        More?
-                                    </button>
-                                </div>
                                 <DateRangeSelector
                                     allMonths={allMonths}
                                     allMonthsToFetch={allMonthsToFetch}
@@ -182,8 +164,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     onChange={setSelectedTowns}
                                     placeholder="All Towns"
                                 />
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Remaining Lease</label>
+                                <div className="flex-1">
                                     <LeaseRangeSelector
                                         min={allLeaseYearsDomain[0]}
                                         max={allLeaseYearsDomain[1]}
@@ -212,8 +193,7 @@ const Sidebar: React.FC<SidebarProps> = ({
                                         onChange={setSelectedTownsB}
                                         placeholder="All Towns"
                                     />
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Remaining Lease</label>
+                                    <div className="flex-1">
                                         <LeaseRangeSelector
                                             min={allLeaseYearsDomain[0]}
                                             max={allLeaseYearsDomain[1]}

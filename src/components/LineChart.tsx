@@ -22,6 +22,7 @@ const LineChart: React.FC<LineChartProps> = React.memo(({ data, xDomain, y1Domai
     grid?: d3.Selection<SVGGElement, unknown, null, undefined>;
     yearSeparators?: d3.Selection<SVGGElement, unknown, null, undefined>;
     linePath?: d3.Selection<SVGPathElement, unknown, null, undefined>;
+    linePathHalo?: d3.Selection<SVGPathElement, unknown, null, undefined>;
     tooltipFocus?: d3.Selection<SVGGElement, unknown, null, undefined>;
   }>({});
 
@@ -77,6 +78,7 @@ const LineChart: React.FC<LineChartProps> = React.memo(({ data, xDomain, y1Domai
     const y2Axis = g.append('g').attr('class', 'y2-axis');
     
     g.append('g').attr('class', 'bars-group');
+    const linePathHalo = g.append('path').attr('class', 'line-path-halo').attr('fill', 'none').attr('stroke-width', 5);
     const linePath = g.append('path').attr('class', 'line-path').attr('fill', 'none').attr('stroke-width', 2.5);
     const legend = g.append('g').attr('class', 'legend');
     
@@ -85,14 +87,14 @@ const LineChart: React.FC<LineChartProps> = React.memo(({ data, xDomain, y1Domai
     tooltipFocus.append('circle').attr('class', 'focus-circle-2').attr('r', 5);
     g.append('rect').attr('class', 'overlay').style('fill', 'none').style('pointer-events', 'all');
 
-    chartElementsRef.current = { g, xAxis, y1Axis, y2Axis, grid, yearSeparators, linePath, tooltipFocus };
+    chartElementsRef.current = { g, xAxis, y1Axis, y2Axis, grid, yearSeparators, linePath, linePathHalo, tooltipFocus };
   }, []);
   
   // Effect for updates
   useEffect(() => {
     if (!containerRef.current || !tooltipRef.current || data.length === 0 || !chartElementsRef.current.g || dimensions.width === 0) return;
     
-    const { g, xAxis, y1Axis, y2Axis, grid, yearSeparators, linePath, tooltipFocus } = chartElementsRef.current;
+    const { g, xAxis, y1Axis, y2Axis, grid, yearSeparators, linePath, linePathHalo, tooltipFocus } = chartElementsRef.current;
     
     const { width, height } = dimensions;
     const margin = { top: 50, right: 75, bottom: 50, left: 75 };
@@ -106,25 +108,25 @@ const LineChart: React.FC<LineChartProps> = React.memo(({ data, xDomain, y1Domai
     const metricDetails = {
       grossTransactionValue: {
         label: 'Gross Transaction Value',
-        color: "#4ade80", // emerald-400 (bright green)
+        color: "#ef4444", // red-500
         formatter: (d: d3.NumberValue) => d3.format(".2s")(d as number).replace(/G/, "B").replace(/M/, "M"),
         tooltipFormatter: (d?: number) => (d !== undefined ? d3.format("$,.2s")(d).replace(/G/, "B").replace(/M/, "M") : 'N/A'),
       },
       median_psf: {
         label: 'Median Price p.s.f.',
-        color: "#f97316", // orange-500
+        color: "#ef4444", // red-500
         formatter: (d: d3.NumberValue) => d3.format("$,.0f")(d),
         tooltipFormatter: (d?: number) => (d !== undefined ? `${d3.format("$,.0f")(d)}/psf` : 'N/A'),
       },
       median_price_per_lease: {
         label: 'Median Price / Lease (Yr)',
-        color: "#fb7185", // rose-400
+        color: "#ef4444", // red-500
         formatter: (d: d3.NumberValue) => d3.format("$,.0f")(d),
         tooltipFormatter: (d?: number) => (d !== undefined ? `${d3.format("$,.0f")(d)}/yr` : 'N/A'),
       },
       millionDollarTransactionPercentage: {
         label: '% of > $1M Flats',
-        color: "#a78bfa", // violet-400
+        color: "#ef4444", // red-500
         formatter: (d: d3.NumberValue) => `${d3.format(".1f")(d as number)}%`,
         tooltipFormatter: (d?: number) => (d !== undefined ? `${d.toFixed(2)}%` : 'N/A'),
       }
@@ -146,7 +148,7 @@ const LineChart: React.FC<LineChartProps> = React.memo(({ data, xDomain, y1Domai
 
     grid?.transition().duration(500).call(d3.axisLeft(y1).ticks(5).tickSize(-innerWidth).tickFormat(() => "")).call(s => s.select(".domain").remove()).selectAll("line").attr('stroke', 'currentColor').attr('stroke-opacity', 0.05).attr('stroke-dasharray', '0');
 
-    const yearStartMonths = xDomain.filter(m => m.endsWith('-01')).slice(1);
+    const yearStartMonths = xDomain.filter(m => typeof m === 'string' && m.endsWith('-01')).slice(1);
     yearSeparators?.selectAll('line').data(yearStartMonths, (d:any) => d)
         .join('line').transition().duration(500)
         .attr('y1', 0).attr('y2', innerHeight)
@@ -158,6 +160,7 @@ const LineChart: React.FC<LineChartProps> = React.memo(({ data, xDomain, y1Domai
     const numMonths = xDomain.length;
     // If > 24 months, only show January ticks. Otherwise, show Jan and Jul.
     const tickValues = xDomain.filter(d => {
+        if (typeof d !== 'string') return false;
         if (numMonths > 24) return d.endsWith('-01');
         return d.endsWith('-01') || d.endsWith('-07');
     });
@@ -198,6 +201,11 @@ const LineChart: React.FC<LineChartProps> = React.memo(({ data, xDomain, y1Domai
       .x(d => (x(d.month) ?? 0) + x.bandwidth() / 2)
       .y(d => y2(valueAccessor(d)!))
       .defined(d => valueAccessor(d) !== undefined);
+
+    linePathHalo?.datum(data)
+      .attr('stroke', 'white')
+      .transition().duration(500)
+      .attr('d', lineGenerator);
 
     linePath?.datum(data)
       .style('filter', 'url(#line-glow)')

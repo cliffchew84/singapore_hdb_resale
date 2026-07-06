@@ -113,6 +113,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
     const numMonths = xDomain.length;
     // If > 24 months, only show January ticks. Otherwise, show Jan and Jul.
     const tickValues = xDomain.filter(d => {
+        if (typeof d !== 'string') return false;
         if (numMonths > 24) return d.endsWith('-01');
         return d.endsWith('-01') || d.endsWith('-07');
     });
