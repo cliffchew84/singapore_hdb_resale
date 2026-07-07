@@ -5,6 +5,19 @@ import { FLAT_TYPE_MAP } from '../data/constants.ts';
 // Use the environment variable for the parquet URL
 const PARQUET_URL = import.meta.env.VITE_PARQUET_URL;
 
+// Session-based cache buster (generated once per session to ensure fresh data on page reload)
+let cacheBuster: string | null = null;
+
+function getCacheBustedUrl(): string {
+  if (cacheBuster === null) {
+    cacheBuster = crypto.randomUUID(); // More unique than timestamp
+  }
+  return PARQUET_URL ? `${PARQUET_URL}?v=${cacheBuster}` : PARQUET_URL;
+}
+
+// Use unique view name each query to bypass DuckDB's internal caching
+let viewCounter = 0;
+
 if (!PARQUET_URL) {
   console.error('VITE_PARQUET_URL is not defined in environment variables');
 }
@@ -92,8 +105,10 @@ export async function getUniqueFlatTypes(): Promise<string[]> {
   if (!conn) throw new Error('DuckDB connection could not be established');
   
   try {
-    await conn.query(`CREATE OR REPLACE VIEW hdb_raw AS SELECT * FROM read_parquet('${PARQUET_URL}');`);
-    const result = await conn.query(`SELECT DISTINCT type FROM hdb_raw ORDER BY type`);
+    // Use unique view name each query to bypass DuckDB's file caching
+    const viewName = `hdb_raw_${viewCounter++}`;
+    await conn.query(`CREATE OR REPLACE VIEW ${viewName} AS SELECT * FROM read_parquet('${getCacheBustedUrl()}');`);
+    const result = await conn.query(`SELECT DISTINCT type FROM ${viewName} ORDER BY type`);
     return result.toArray().map(row => (row as { type: string }).type);
   } catch (error) {
     console.error('Error fetching unique flat types:', error);
@@ -109,7 +124,9 @@ export async function queryHdb(filter: HdbFilter): Promise<HdbResaleRecord[]> {
   if (!conn) throw new Error('DuckDB connection could not be established');
 
   try {
-    await conn.query(`CREATE OR REPLACE VIEW hdb_raw AS SELECT * FROM read_parquet('${PARQUET_URL}');`);
+    // Use unique view name each query to bypass DuckDB's file caching
+    const viewName = `hdb_raw_${viewCounter++}`;
+    await conn.query(`CREATE OR REPLACE VIEW ${viewName} AS SELECT * FROM read_parquet('${getCacheBustedUrl()}');`);
 
     const where = buildWhereClause(filter);
     
@@ -118,7 +135,7 @@ export async function queryHdb(filter: HdbFilter): Promise<HdbResaleRecord[]> {
         strftime(month, '%Y-%m') as month, 
         * EXCLUDE (month)
       FROM (
-        SELECT * FROM hdb_raw ${where}
+        SELECT * FROM ${viewName} ${where}
       )
     `;
     

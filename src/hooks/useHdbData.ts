@@ -1,13 +1,40 @@
 import { useState, useEffect, useMemo } from 'react';
-import * as d3 from 'd3';
 import { queryHdb, getUniqueFlatTypes } from '../services/parquetHdbService.ts';
 import { FLAT_TYPE_MAP } from '../data/constants.ts';
-import { HdbResaleRecord, BoxPlotStats, SummaryStatsData, LineChartDataPoint, BoxPlotMetric, StackedBarChartDataPoint, LineChartMetric, StackedBarChartMode, DashboardData } from '../types.ts';
+import { HdbResaleRecord, HdbFilter, BoxPlotMetric, LineChartMetric, StackedBarChartMode, DashboardData } from '../types.ts';
 import {
     parseRemainingLeaseToYears,
     calculateGlobalLeaseDomain,
     processDashboardData
 } from '../utils/dataProcessor.ts';
+
+// Helper to filter records based on current filters
+interface FilterSettings {
+    flatTypes: string[];
+    towns: string[];
+    leaseRange: [number, number];
+}
+
+const filterRecords = (
+    records: HdbResaleRecord[],
+    selectedDateRange: [string, string],
+    settings: FilterSettings
+) => {
+    if (records.length === 0 || !selectedDateRange[0] || !selectedDateRange[1]) return [];
+    const [startDateStr, endDateStr] = selectedDateRange;
+    
+    const mappedFlatTypes = settings.flatTypes.map(t => FLAT_TYPE_MAP[t] || t);
+
+    return records.filter(r => {
+        const isInDateRange = r.month >= startDateStr && r.month <= endDateStr;
+        const isTownMatch = settings.towns.length === 0 || settings.towns.includes(r.town);
+        const isFlatTypeMatch = mappedFlatTypes.length === 0 || 
+            (r.type && mappedFlatTypes.some(m => m.toUpperCase() === r.type.toUpperCase()));
+        const leaseYears = parseRemainingLeaseToYears(r.lease);
+        const isLeaseMatch = leaseYears !== null && leaseYears >= settings.leaseRange[0] && leaseYears <= settings.leaseRange[1];
+        return isInDateRange && isTownMatch && isFlatTypeMatch && isLeaseMatch;
+    });
+};
 
 export const useHdbData = () => {
     const [rawRecords, setRawRecords] = useState<HdbResaleRecord[]>([]);
@@ -17,18 +44,26 @@ export const useHdbData = () => {
     const [error, setError] = useState<string | null>(null);
     const [loadingMessage, setLoadingMessage] = useState<string>('Initializing DuckDB...');
     
+    // Track the full dataset's months - this NEVER changes after initial load
+    // This is used for date picker constraints (what months can be selected)
+    const [fullDatasetMonths, setFullDatasetMonths] = useState<string[]>([]);
+    
     // Filter states
     const [isComparisonMode, setIsComparisonMode] = useState<boolean>(false);
     
     // Panel A
-    const [selectedFlatTypes, setSelectedFlatTypes] = useState<string[]>([]);
-    const [selectedTowns, setSelectedTowns] = useState<string[]>([]);
-    const [selectedLeaseRange, setSelectedLeaseRange] = useState<[number, number]>([0, 99]);
+    const [filtersA, setFiltersA] = useState<FilterSettings>({
+        flatTypes: [],
+        towns: [],
+        leaseRange: [0, 99],
+    });
 
     // Panel B
-    const [selectedFlatTypesB, setSelectedFlatTypesB] = useState<string[]>([]);
-    const [selectedTownsB, setSelectedTownsB] = useState<string[]>([]);
-    const [selectedLeaseRangeB, setSelectedLeaseRangeB] = useState<[number, number]>([0, 99]);
+    const [filtersB, setFiltersB] = useState<FilterSettings>({
+        flatTypes: [],
+        towns: [],
+        leaseRange: [0, 99],
+    });
 
     const [selectedDateRange, setSelectedDateRange] = useState<[string, string]>(['', '']);
     const [boxPlotMetric, setBoxPlotMetric] = useState<BoxPlotMetric>('price');
@@ -52,18 +87,15 @@ export const useHdbData = () => {
         return months;
     }, []);
 
-    // Memoized calculation for stable domains
+    // Memoized calculation for stable domains - allMonthsXDomain uses full dataset months
     const { allMonthsXDomain, allLeaseYearsDomain } = useMemo(() => {
-        if (rawRecords.length === 0) return { 
-            allMonthsXDomain: [], 
-            allLeaseYearsDomain: [0, 99] as [number, number],
-        };
-        const allMonths = [...new Set(rawRecords.map(r => r.month))].sort();
+        // We need to derive lease domain from rawRecords, but months from fullDatasetMonths
+        const leaseDomain = rawRecords.length > 0 ? calculateGlobalLeaseDomain(rawRecords) : [0, 99];
         return { 
-            allMonthsXDomain: allMonths, 
-            allLeaseYearsDomain: [calculateGlobalLeaseDomain(rawRecords)[0], 99] as [number, number],
+            allMonthsXDomain: fullDatasetMonths, 
+            allLeaseYearsDomain: [leaseDomain[0], 99] as [number, number],
         };
-    }, [rawRecords]);
+    }, [fullDatasetMonths, rawRecords]);
 
     // Initial Data Load
     useEffect(() => {
@@ -76,7 +108,7 @@ export const useHdbData = () => {
 
                 setLoading(true);
                 setLoadingMessage('Querying Parquet via DuckDB...');
-                const initialFilter = {
+                const initialFilter: HdbFilter = {
                     startMonth: '2020-01',
                     endMonth: '2026-12',
                     selectedTowns: [],
@@ -86,13 +118,16 @@ export const useHdbData = () => {
                 const records = await queryHdb(initialFilter);
                 if (isMounted) {
                     setRawRecords(records);
+                    setFullDatasetMonths(records.length > 0 ? [...new Set(records.map(r => r.month))].sort() : []);
                     setIsDataFullyLoaded(true);
+                    
                     if (records.length > 0) {
                         const months = [...new Set(records.map(r => r.month))].sort();
                         const leaseDomain = calculateGlobalLeaseDomain(records);
-                        setSelectedDateRange([months[0], months[months.length - 1]]);
-                        setSelectedLeaseRange([leaseDomain[0], 99]);
-                        setSelectedLeaseRangeB([leaseDomain[0], 99]);
+                        // Always start from January 2020, end at latest available month
+                        setSelectedDateRange(['2020-01', months[months.length - 1]]);
+                        setFiltersA(prev => ({ ...prev, leaseRange: [leaseDomain[0], 99] }));
+                        setFiltersB(prev => ({ ...prev, leaseRange: [leaseDomain[0], 99] }));
                     }
                 }
             } catch (e) {
@@ -117,7 +152,7 @@ export const useHdbData = () => {
             try {
                 setIsIncrementalLoading(true);
                 setLoadingMessage('Updating dataset...');
-                const filter = {
+                const filter: HdbFilter = {
                     startMonth: selectedDateRange[0],
                     endMonth: selectedDateRange[1],
                     selectedTowns: [],
@@ -173,57 +208,33 @@ export const useHdbData = () => {
         return Array.from(years);
     }, [selectedDateRange]);
 
-    const filteredRecords = useMemo(() => {
-        if (rawRecords.length === 0 || !selectedDateRange[0] || !selectedDateRange[1]) return [];
-        const [startDateStr, endDateStr] = selectedDateRange;
-        
-        const mappedFlatTypes = selectedFlatTypes.map(t => FLAT_TYPE_MAP[t] || t);
-
-        return rawRecords.filter(r => {
-            const isInDateRange = r.month >= startDateStr && r.month <= endDateStr;
-            const isTownMatch = selectedTowns.length === 0 || selectedTowns.includes(r.town);
-            const isFlatTypeMatch = mappedFlatTypes.length === 0 || 
-                (r.type && mappedFlatTypes.some(m => m.toUpperCase() === r.type.toUpperCase()));
-            const leaseYears = parseRemainingLeaseToYears(r.lease);
-            const isLeaseMatch = leaseYears !== null && leaseYears >= selectedLeaseRange[0] && leaseYears <= selectedLeaseRange[1];
-            return isInDateRange && isTownMatch && isFlatTypeMatch && isLeaseMatch;
-        });
-    }, [rawRecords, selectedTowns, selectedFlatTypes, selectedDateRange, selectedLeaseRange]);
+    const filteredRecords = useMemo(() => 
+        filterRecords(rawRecords, selectedDateRange, filtersA),
+    [rawRecords, filtersA, selectedDateRange]);
 
     const filteredRecordsB = useMemo(() => {
-        if (!isComparisonMode || rawRecords.length === 0 || !selectedDateRange[0] || !selectedDateRange[1]) return [];
-        const [startDateStr, endDateStr] = selectedDateRange;
-        
-        const mappedFlatTypesB = selectedFlatTypesB.map(t => FLAT_TYPE_MAP[t] || t);
-
-        return rawRecords.filter(r => {
-            const isInDateRange = r.month >= startDateStr && r.month <= endDateStr;
-            const isTownMatch = selectedTownsB.length === 0 || selectedTownsB.includes(r.town);
-            const isFlatTypeMatch = mappedFlatTypesB.length === 0 || 
-                (r.type && mappedFlatTypesB.some(m => m.toUpperCase() === r.type.toUpperCase()));
-            const leaseYears = parseRemainingLeaseToYears(r.lease);
-            const isLeaseMatch = leaseYears !== null && leaseYears >= selectedLeaseRangeB[0] && leaseYears <= selectedLeaseRangeB[1];
-            return isInDateRange && isTownMatch && isFlatTypeMatch && isLeaseMatch;
-        });
-    }, [isComparisonMode, rawRecords, selectedTownsB, selectedFlatTypesB, selectedDateRange, selectedLeaseRangeB]);
+        if (!isComparisonMode) return [];
+        return filterRecords(rawRecords, selectedDateRange, filtersB);
+    }, [isComparisonMode, rawRecords, filtersB, selectedDateRange]);
     
     const chartXDomain = useMemo(() => {
         if (!selectedDateRange[0] || !selectedDateRange[1] || allMonthsXDomain.length === 0) return [];
-        const startIndex = allMonthsXDomain.indexOf(selectedDateRange[0]);
-        const endIndex = allMonthsXDomain.indexOf(selectedDateRange[1]);
+        const [startRangeStr, endRangeStr] = selectedDateRange;
+        const startIndex = allMonthsXDomain.indexOf(startRangeStr);
+        const endIndex = allMonthsXDomain.indexOf(endRangeStr);
         if (startIndex === -1 || endIndex === -1) return [];
-        return allMonthsXDomain.slice(startIndex, endIndex + 1);
+        return allMonthsXDomain.slice(Math.max(0, startIndex), endIndex + 1);
     }, [allMonthsXDomain, selectedDateRange]);
 
-    const dashboardDataA = useMemo<DashboardData>(() => 
-        processDashboardData(filteredRecords, chartXDomain, boxPlotMetric),
-        [filteredRecords, chartXDomain, boxPlotMetric]
-    );
+    // Process dashboard data - computes all charts in a single pass
+    const dashboardDataA = useMemo<DashboardData>(() => {
+        return processDashboardData(filteredRecords, chartXDomain, boxPlotMetric);
+    }, [filteredRecords, chartXDomain, boxPlotMetric]);
 
-    const dashboardDataB = useMemo<DashboardData>(() => 
-        processDashboardData(filteredRecordsB, chartXDomain, boxPlotMetric),
-        [filteredRecordsB, chartXDomain, boxPlotMetric]
-    );
+    const dashboardDataB = useMemo<DashboardData>(() => {
+        if (!isComparisonMode) return processDashboardData([], [], boxPlotMetric);
+        return processDashboardData(filteredRecordsB, chartXDomain, boxPlotMetric);
+    }, [filteredRecordsB, chartXDomain, boxPlotMetric, isComparisonMode]);
 
     const syncedDashboardData = useMemo(() => {
         if (!isComparisonMode) return { a: dashboardDataA, b: dashboardDataB };
@@ -263,10 +274,8 @@ export const useHdbData = () => {
         dashboardDataA: syncedDashboardData.a, dashboardDataB: syncedDashboardData.b, isComparisonMode, setIsComparisonMode,
         allMonthsXDomain, allMonthsToFetch, chartXDomain, 
         allLeaseYearsDomain, boxPlotMetric, lineChartMetric, stackedBarChartMode,
-        selectedFlatTypes, selectedTowns, selectedDateRange, selectedLeaseRange,
-        selectedFlatTypesB, selectedTownsB, selectedLeaseRangeB,
-        setSelectedFlatTypes, setSelectedTowns, setSelectedDateRange, setSelectedLeaseRange,
-        setSelectedFlatTypesB, setSelectedTownsB, setSelectedLeaseRangeB,
+        filtersA, filtersB, selectedDateRange,
+        setFiltersA, setFiltersB, setSelectedDateRange,
         setBoxPlotMetric, setLineChartMetric, setStackedBarChartMode,
         ensureDataForRange,
         removeDataForRange,

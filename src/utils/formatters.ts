@@ -1,4 +1,4 @@
-export { parseRemainingLeaseToYears } from './dataProcessor.ts';
+export { parseRemainingLeaseToYears, SQM_TO_SQFT_CONVERSION } from './dataProcessor.ts';
 
 export const formatCompactCurrency = (value: number | undefined): string => {
     if (value === undefined || isNaN(value)) return 'N/A';

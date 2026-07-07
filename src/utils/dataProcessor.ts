@@ -1,7 +1,17 @@
 import * as d3 from 'd3';
-import { HdbResaleRecord, BoxPlotStats, Outlier, SummaryStatsData, LineChartDataPoint, BoxPlotMetric, StackedBarChartDataPoint, PRICE_CATEGORIES, DashboardData } from '../types.ts';
+import { 
+  HdbResaleRecord, 
+  BoxPlotStats, 
+  Outlier, 
+  SummaryStatsData, 
+  LineChartDataPoint, 
+  BoxPlotMetric, 
+  StackedBarChartDataPoint, 
+  DashboardData
+} from '../types.ts';
 
-const SQM_TO_SQFT_CONVERSION = 10.7639;
+// Conversion factor: square meters to square feet
+export const SQM_TO_SQFT_CONVERSION = 10.7639;
 
 /**
  * Parses a "X years Y months" string into a fractional number of years.
@@ -69,7 +79,13 @@ export const processDashboardData = (
         prices: number[];
         psfValues: number[];
         pricePerLeaseValues: number[];
-        priceCounts: Record<string, number>;
+        priceCounts: {
+            '0-300k': number;
+            '300-500k': number;
+            '500-800k': number;
+            '800k-1m': number;
+            '>=1m': number;
+        };
         totalTransactions: number;
     }>();
 
@@ -212,10 +228,14 @@ export const processDashboardData = (
             const min = d3.min(nonOutlierValues) ?? q1;
             const max = d3.max(nonOutlierValues) ?? q3;
 
-            const monthMax = d3.max([max, ...outliers.map(o => o.metricValue)]) ?? 0;
+            const sortedAllValues = m.records.map(r => r.value).sort(d3.ascending);
+            const absoluteMin = sortedAllValues[0] ?? q1;
+            const absoluteMax = sortedAllValues[sortedAllValues.length - 1] ?? q3;
+
+            const monthMax = absoluteMax;
             if (monthMax > maxBoxPlotValue) maxBoxPlotValue = monthMax;
 
-            processedData.push({ month, min, q1, median, q3, max, outliers });
+            processedData.push({ month, min, q1, median, q3, max, absoluteMin, absoluteMax, outliers });
         }
 
         // Line Chart Point

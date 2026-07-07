@@ -9,6 +9,15 @@ export interface HdbResaleRecord {
   _id?: number;
 }
 
+// Filter interface for HDB data queries
+export interface HdbFilter {
+  startMonth?: string;
+  endMonth?: string;
+  selectedTowns?: string[];
+  selectedFlatTypes?: string[];
+  selectedLeaseRange?: [number, number];
+}
+
 // The metric being displayed on the Box Plot's Y-axis
 export type BoxPlotMetric = 'price' | 'price_psf' | 'price_per_lease';
 
@@ -18,8 +27,8 @@ export interface Outlier {
   price: number;
   type: string;
   town: string;
-  lease: number;
-  area: number;
+  lease: string | number | undefined;
+  area: string | number | undefined;
 }
 
 // Calculated box plot statistics for a given month
@@ -30,6 +39,8 @@ export interface BoxPlotStats {
   median: number;
   q3: number;
   max: number;
+  absoluteMin: number;
+  absoluteMax: number;
   outliers: Outlier[];
 }
 
