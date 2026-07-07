@@ -15,27 +15,26 @@ const FilterPill: React.FC<{ label: string; value: string }> = ({ label, value }
 );
 
 interface FilterSummaryProps {
-  selectedTowns: string[];
-  selectedFlatTypes: string[];
+  filtersA: {
+    towns: string[];
+    flatTypes: string[];
+    leaseRange: [number, number];
+  };
+  filtersB: {
+    towns: string[];
+    flatTypes: string[];
+    leaseRange: [number, number];
+  };
   selectedDateRange: [string, string];
-  selectedLeaseRange: [number, number];
-  // Panel B
-  selectedTownsB: string[];
-  selectedFlatTypesB: string[];
-  selectedLeaseRangeB: [number, number];
   isComparisonMode: boolean;
   allLeaseYearsDomain: [number, number];
   allMonths: string[];
 }
 
 const FilterSummary: React.FC<FilterSummaryProps> = ({
-  selectedTowns,
-  selectedFlatTypes,
+  filtersA,
+  filtersB,
   selectedDateRange,
-  selectedLeaseRange,
-  selectedTownsB,
-  selectedFlatTypesB,
-  selectedLeaseRangeB,
   isComparisonMode,
   allLeaseYearsDomain,
   allMonths,
@@ -63,8 +62,8 @@ const FilterSummary: React.FC<FilterSummaryProps> = ({
     !isDefaultLeaseRange(lease) && { label: 'Lease', value: `${lease[0]} - ${lease[1]} yrs` },
   ].filter(Boolean) as { label: string; value: string }[];
 
-  const activeFiltersA = getActiveFilters(selectedTowns, selectedFlatTypes, selectedLeaseRange);
-  const activeFiltersB = isComparisonMode ? getActiveFilters(selectedTownsB, selectedFlatTypesB, selectedLeaseRangeB) : [];
+  const activeFiltersA = getActiveFilters(filtersA.towns, filtersA.flatTypes, filtersA.leaseRange);
+  const activeFiltersB = isComparisonMode ? getActiveFilters(filtersB.towns, filtersB.flatTypes, filtersB.leaseRange) : [];
 
   const hasAnyFilters = activeFiltersA.length > 0 || activeFiltersB.length > 0 || !isDefaultDateRange;
 
@@ -76,7 +75,7 @@ const FilterSummary: React.FC<FilterSummaryProps> = ({
         <div className="flex items-center gap-4 flex-wrap">
           {!isDefaultDateRange && (
             <FilterPill 
-              label="Selected Period" 
+              label="Date Range"
               value={`${formatMonthYear(selectedDateRange[0])} - ${formatMonthYear(selectedDateRange[1])}`} 
             />
           )}
@@ -140,45 +139,45 @@ const App: React.FC = () => {
   useEffect(() => {
     const baseTitle = 'SG HDB Resale Price Dashboard';
     
-    const { selectedFlatTypes, selectedTowns } = hdbData;
+    const { filtersA } = hdbData;
 
     let prefix = '';
-    if (selectedFlatTypes.length > 0 || selectedTowns.length > 0) {
+    if (filtersA.flatTypes.length > 0 || filtersA.towns.length > 0) {
         const parts = [];
-        if (selectedFlatTypes.length === 1) {
-            parts.push(selectedFlatTypes[0]);
-        } else if (selectedFlatTypes.length > 1) {
-            parts.push(`${selectedFlatTypes.length} Room Types`);
+        if (filtersA.flatTypes.length === 1) {
+            parts.push(filtersA.flatTypes[0]);
+        } else if (filtersA.flatTypes.length > 1) {
+            parts.push(`${filtersA.flatTypes.length} Room Types`);
         }
 
-        if (selectedTowns.length === 1) {
-            parts.push(`in ${selectedTowns[0]}`);
-        } else if (selectedTowns.length > 1) {
-            parts.push(`in ${selectedTowns.length} Towns`);
+        if (filtersA.towns.length === 1) {
+            parts.push(`in ${filtersA.towns[0]}`);
+        } else if (filtersA.towns.length > 1) {
+            parts.push(`in ${filtersA.towns.length} Towns`);
         }
         prefix = parts.join(' ') + ' | ';
     }
 
     document.title = `${prefix}${baseTitle}`;
 
-  }, [hdbData.selectedFlatTypes, hdbData.selectedTowns]);
+  }, [hdbData.filtersA]);
 
   // PostHog Tracking: Filters Applied (Debounced)
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (posthog) {
         posthog.capture('filters_applied', {
-          towns: hdbData.selectedTowns,
-          flat_types: hdbData.selectedFlatTypes,
+          towns: hdbData.filtersA.towns,
+          flat_types: hdbData.filtersA.flatTypes,
           start_month: hdbData.selectedDateRange[0],
           end_month: hdbData.selectedDateRange[1],
-          min_lease: hdbData.selectedLeaseRange[0],
-          max_lease: hdbData.selectedLeaseRange[1],
+          min_lease: hdbData.filtersA.leaseRange[0],
+          max_lease: hdbData.filtersA.leaseRange[1],
           is_comparison_mode: hdbData.isComparisonMode,
-          segment_b_towns: hdbData.isComparisonMode ? hdbData.selectedTownsB : undefined,
-          segment_b_flat_types: hdbData.isComparisonMode ? hdbData.selectedFlatTypesB : undefined,
-          segment_b_min_lease: hdbData.isComparisonMode ? hdbData.selectedLeaseRangeB[0] : undefined,
-          segment_b_max_lease: hdbData.isComparisonMode ? hdbData.selectedLeaseRangeB[1] : undefined,
+          segment_b_towns: hdbData.isComparisonMode ? hdbData.filtersB.towns : undefined,
+          segment_b_flat_types: hdbData.isComparisonMode ? hdbData.filtersB.flatTypes : undefined,
+          segment_b_min_lease: hdbData.isComparisonMode ? hdbData.filtersB.leaseRange[0] : undefined,
+          segment_b_max_lease: hdbData.isComparisonMode ? hdbData.filtersB.leaseRange[1] : undefined,
           active_years: hdbData.activeYears,
           active_years_count: hdbData.activeYears.length,
         });
@@ -187,14 +186,10 @@ const App: React.FC = () => {
 
     return () => clearTimeout(timeoutId);
   }, [
-    hdbData.selectedTowns, 
-    hdbData.selectedFlatTypes, 
-    hdbData.selectedDateRange, 
-    hdbData.selectedLeaseRange,
+    hdbData.filtersA, 
+    hdbData.filtersB, 
+    hdbData.selectedDateRange,
     hdbData.isComparisonMode,
-    hdbData.selectedTownsB,
-    hdbData.selectedFlatTypesB,
-    hdbData.selectedLeaseRangeB,
     hdbData.activeYears,
     posthog
   ]);
@@ -202,26 +197,18 @@ const App: React.FC = () => {
   const sidebarProps = {
     isOpen: isSidebarOpen,
     setIsOpen: setIsSidebarOpen,
-    allMonths: hdbData.allMonthsXDomain,
+    allMonths: hdbData.allMonthsToFetch,
     allMonthsToFetch: hdbData.allMonthsToFetch,
-    selectedFlatTypes: hdbData.selectedFlatTypes,
-    selectedTowns: hdbData.selectedTowns,
+    monthsWithData: hdbData.allMonthsXDomain,
+    filtersA: hdbData.filtersA,
+    filtersB: hdbData.filtersB,
     selectedDateRange: hdbData.selectedDateRange,
-    setSelectedFlatTypes: hdbData.setSelectedFlatTypes,
-    setSelectedTowns: hdbData.setSelectedTowns,
+    setFiltersA: hdbData.setFiltersA,
+    setFiltersB: hdbData.setFiltersB,
     setSelectedDateRange: hdbData.setSelectedDateRange,
     flatTypes: FLAT_TYPES,
     towns: TOWNS,
     allLeaseYearsDomain: hdbData.allLeaseYearsDomain,
-    selectedLeaseRange: hdbData.selectedLeaseRange,
-    setSelectedLeaseRange: hdbData.setSelectedLeaseRange,
-    // Panel B
-    selectedFlatTypesB: hdbData.selectedFlatTypesB,
-    selectedTownsB: hdbData.selectedTownsB,
-    selectedLeaseRangeB: hdbData.selectedLeaseRangeB,
-    setSelectedFlatTypesB: hdbData.setSelectedFlatTypesB,
-    setSelectedTownsB: hdbData.setSelectedTownsB,
-    setSelectedLeaseRangeB: hdbData.setSelectedLeaseRangeB,
     isComparisonMode: hdbData.isComparisonMode,
     setIsComparisonMode: (isComparison: boolean) => {
       hdbData.setIsComparisonMode(isComparison);
@@ -287,12 +274,8 @@ const App: React.FC = () => {
   };
   
   const filterSummaryProps = {
-    selectedTowns: hdbData.selectedTowns,
-    selectedFlatTypes: hdbData.selectedFlatTypes,
-    selectedLeaseRange: hdbData.selectedLeaseRange,
-    selectedTownsB: hdbData.selectedTownsB,
-    selectedFlatTypesB: hdbData.selectedFlatTypesB,
-    selectedLeaseRangeB: hdbData.selectedLeaseRangeB,
+    filtersA: hdbData.filtersA,
+    filtersB: hdbData.filtersB,
     isComparisonMode: hdbData.isComparisonMode,
     selectedDateRange: hdbData.selectedDateRange,
     allMonths: hdbData.allMonthsToFetch,

@@ -113,6 +113,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
     const numMonths = xDomain.length;
     // If > 24 months, only show January ticks. Otherwise, show Jan and Jul.
     const tickValues = xDomain.filter(d => {
+        if (typeof d !== 'string') return false;
         if (numMonths > 24) return d.endsWith('-01');
         return d.endsWith('-01') || d.endsWith('-07');
     });
@@ -123,7 +124,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
         return d3.timeFormat('%b')(date);
     }).tickSizeOuter(0);
 
-    xAxis?.attr('transform', `translate(0, ${innerHeight})`).transition().duration(500).call(xAxisGenerator)
+    xAxis?.attr('transform', `translate(0, ${innerHeight})`).transition().duration(350).ease(d3.easeCubic).call(xAxisGenerator)
       .call(s => s.select(".domain").remove())
       .selectAll(".tick text").style("font-weight", "600").style("font-size", "11px").style("fill", "#64748b");
 
@@ -132,7 +133,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
       const yAxisHighlightColor = '#1e293b'; // slate-800
       const fiftyPercentLineColor = '#cbd5e1'; // slate-300
 
-      yAxis?.transition().duration(500)
+      yAxis?.transition().duration(350).ease(d3.easeCubic)
         .call(d3.axisLeft(y).tickValues(yAxisTicks).tickFormat(d => `${d}%`))
         .call(s => s.selectAll(".domain, line").remove())
         .call(s => s.selectAll('.tick text')
@@ -142,7 +143,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
             .style('font-size', '10px')
         );
 
-      grid?.lower().transition().duration(500)
+      grid?.lower().transition().duration(350).ease(d3.easeCubic)
         .call(d3.axisLeft(y).tickValues(yAxisTicks).tickSize(-innerWidth).tickFormat(() => ""))
         .call(s => s.select(".domain").remove())
         .selectAll("line")
@@ -151,7 +152,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
         .attr('stroke-dasharray', (d: any) => d === 50 ? null : '0')
         .attr('stroke-width', (d: any) => d === 50 ? 1 : 1);
     } else { // Count mode
-      yAxis?.transition().duration(500)
+      yAxis?.transition().duration(350).ease(d3.easeCubic)
         .call(d3.axisLeft(y).ticks(5).tickFormat(d3.format(",.0f")))
         .call(s => s.selectAll(".domain, line").remove())
         .call(s => s.selectAll('.tick text')
@@ -160,7 +161,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
             .style('fill', '#64748b')
         );
 
-      grid?.lower().transition().duration(500)
+      grid?.lower().transition().duration(350).ease(d3.easeCubic)
         .call(d3.axisLeft(y).ticks(5).tickSize(-innerWidth).tickFormat(() => ""))
         .call(s => s.select(".domain").remove())
         .selectAll("line")
@@ -202,7 +203,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
             enter => enter.append('rect')
                 .attr('y', innerHeight).attr('height', 0),
             update => update,
-            exit => exit.transition().duration(200).attr('y', innerHeight).attr('height', 0).remove()
+            exit => exit.transition().duration(300).ease(d3.easeCubic).attr('y', innerHeight).attr('height', 0).remove()
         )
         .attr('x', d => x(d.data.month)!)
         .attr('width', x.bandwidth())
@@ -253,7 +254,7 @@ const StackedBarChart: React.FC<StackedBarChartProps> = React.memo(({ data, xDom
             tooltip.style('opacity', 0).style('display', 'none');
             d3.select(this).style('filter', null);
         })
-        .transition().duration(500)
+        .transition().duration(350).ease(d3.easeCubic)
         .attr('y', d => y(d[1]))
         .attr('height', d => Math.max(0, y(d[0]) - y(d[1])))
         .attr('rx', function() {

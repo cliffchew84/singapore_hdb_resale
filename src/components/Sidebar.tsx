@@ -8,24 +8,24 @@ interface SidebarProps {
   setIsOpen: (isOpen: boolean) => void;
   allMonths: string[];
   allMonthsToFetch: string[];
-  selectedFlatTypes: string[];
-  selectedTowns: string[];
+  monthsWithData: string[];
+  filtersA: {
+    flatTypes: string[];
+    towns: string[];
+    leaseRange: [number, number];
+  };
+  filtersB: {
+    flatTypes: string[];
+    towns: string[];
+    leaseRange: [number, number];
+  };
   selectedDateRange: [string, string];
-  setSelectedFlatTypes: (types: string[]) => void;
-  setSelectedTowns: (towns: string[]) => void;
+  setFiltersA: (filters: any) => void;
+  setFiltersB: (filters: any) => void;
   setSelectedDateRange: (range: [string, string]) => void;
   flatTypes: string[];
   towns: string[];
   allLeaseYearsDomain: [number, number];
-  selectedLeaseRange: [number, number];
-  setSelectedLeaseRange: (range: [number, number]) => void;
-  // Panel B
-  selectedFlatTypesB: string[];
-  selectedTownsB: string[];
-  selectedLeaseRangeB: [number, number];
-  setSelectedFlatTypesB: (types: string[]) => void;
-  setSelectedTownsB: (towns: string[]) => void;
-  setSelectedLeaseRangeB: (range: [number, number]) => void;
   isComparisonMode: boolean;
   setIsComparisonMode: (mode: boolean) => void;
   isDataFullyLoaded: boolean;
@@ -41,23 +41,16 @@ const Sidebar: React.FC<SidebarProps> = ({
   setIsOpen,
   allMonths,
   allMonthsToFetch,
-  selectedFlatTypes,
-  selectedTowns,
+  monthsWithData,
+  filtersA,
+  filtersB,
   selectedDateRange,
-  setSelectedFlatTypes,
-  setSelectedTowns,
+  setFiltersA,
+  setFiltersB,
   setSelectedDateRange,
   flatTypes,
   towns,
   allLeaseYearsDomain,
-  selectedLeaseRange,
-  setSelectedLeaseRange,
-  selectedFlatTypesB,
-  selectedTownsB,
-  selectedLeaseRangeB,
-  setSelectedFlatTypesB,
-  setSelectedTownsB,
-  setSelectedLeaseRangeB,
   isComparisonMode,
   setIsComparisonMode,
   isDataFullyLoaded,
@@ -137,27 +130,10 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     </button>
                                 </div>
 
-                                <label className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-2">Selected Period</label>
-                                <div className="grid grid-cols-4 gap-2 mb-4">
-                                    {Array.from({ length: 2026 - 2020 + 1 }, (_, i) => (2026 - i).toString()).map(year => (
-                                        <QuickFilterButton
-                                            key={year}
-                                            onClick={() => onYearButtonClick(year)}
-                                            isActive={activeYears.includes(year)}
-                                        >
-                                            {year}
-                                        </QuickFilterButton>
-                                    ))}
-                                    <button
-                                        onClick={() => setShowContactModal(true)}
-                                        className="px-3 py-1 text-xs font-semibold rounded-full transition-colors whitespace-nowrap bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border border-emerald-200"
-                                    >
-                                        More?
-                                    </button>
-                                </div>
                                 <DateRangeSelector
                                     allMonths={allMonths}
                                     allMonthsToFetch={allMonthsToFetch}
+                                    monthsWithData={monthsWithData}
                                     selectedRange={selectedDateRange}
                                     onChange={setSelectedDateRange}
                                     disabled={allMonths.length === 0 || loading}
@@ -171,24 +147,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                                 <MultiSelectDropdown
                                     label="Room Type"
                                     options={flatTypes}
-                                    selectedOptions={selectedFlatTypes}
-                                    onChange={setSelectedFlatTypes}
+                                    selectedOptions={filtersA.flatTypes}
+                                    onChange={(types) => setFiltersA(prev => ({ ...prev, flatTypes: types }))}
                                     placeholder="All Room Types"
                                 />
                                 <MultiSelectDropdown
                                     label="Town"
                                     options={towns}
-                                    selectedOptions={selectedTowns}
-                                    onChange={setSelectedTowns}
+                                    selectedOptions={filtersA.towns}
+                                    onChange={(towns) => setFiltersA(prev => ({ ...prev, towns: towns }))}
                                     placeholder="All Towns"
                                 />
-                                <div>
-                                    <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Remaining Lease</label>
+                                <div className="flex-1">
                                     <LeaseRangeSelector
                                         min={allLeaseYearsDomain[0]}
                                         max={allLeaseYearsDomain[1]}
-                                        selectedRange={selectedLeaseRange}
-                                        onChange={setSelectedLeaseRange}
+                                        selectedRange={filtersA.leaseRange}
+                                        onChange={(range) => setFiltersA(prev => ({ ...prev, leaseRange: range }))}
                                         disabled={allMonths.length === 0}
                                     />
                                 </div>
@@ -201,24 +176,23 @@ const Sidebar: React.FC<SidebarProps> = ({
                                     <MultiSelectDropdown
                                         label="Room Type"
                                         options={flatTypes}
-                                        selectedOptions={selectedFlatTypesB}
-                                        onChange={setSelectedFlatTypesB}
+                                        selectedOptions={filtersB.flatTypes}
+                                        onChange={(types) => setFiltersB(prev => ({ ...prev, flatTypes: types }))}
                                         placeholder="All Room Types"
                                     />
                                     <MultiSelectDropdown
                                         label="Town"
                                         options={towns}
-                                        selectedOptions={selectedTownsB}
-                                        onChange={setSelectedTownsB}
+                                        selectedOptions={filtersB.towns}
+                                        onChange={(towns) => setFiltersB(prev => ({ ...prev, towns: towns }))}
                                         placeholder="All Towns"
                                     />
-                                    <div>
-                                        <label className="block text-[11px] font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Remaining Lease</label>
+                                    <div className="flex-1">
                                         <LeaseRangeSelector
                                             min={allLeaseYearsDomain[0]}
                                             max={allLeaseYearsDomain[1]}
-                                            selectedRange={selectedLeaseRangeB}
-                                            onChange={setSelectedLeaseRangeB}
+                                            selectedRange={filtersB.leaseRange}
+                                            onChange={(range) => setFiltersB(prev => ({ ...prev, leaseRange: range }))}
                                             disabled={allMonths.length === 0}
                                         />
                                     </div>

@@ -40,12 +40,6 @@ interface DashboardProps {
   onSectionToggle?: (section: keyof SectionStates, isOpen: boolean) => void;
 }
 
-const boxPlotTitles: Record<BoxPlotMetric, string> = {
-  resale_price: 'Monthly Resale Price Distribution',
-  price_psf: 'Monthly Price p.s.f. Distribution',
-  price_per_lease: 'Monthly Price / Lease Left (Yr) Distribution',
-};
-
 const MetricButton: React.FC<{
   onClick: () => void;
   isActive: boolean;
@@ -93,7 +87,7 @@ const Dashboard: React.FC<DashboardProps> = ({
 
   const boxPlotActions = (
     <div className="p-1 bg-slate-100 rounded-lg flex items-stretch space-x-1">
-      <MetricButton onClick={() => setBoxPlotMetric('resale_price')} isActive={boxPlotMetric === 'resale_price'} className="flex-1">
+      <MetricButton onClick={() => setBoxPlotMetric('price')} isActive={boxPlotMetric === 'price'} className="flex-1">
         Resale Price
       </MetricButton>
       <MetricButton onClick={() => setBoxPlotMetric('price_psf')} isActive={boxPlotMetric === 'price_psf'} className="flex-1">
@@ -140,13 +134,24 @@ const Dashboard: React.FC<DashboardProps> = ({
     return grossTransactionValueYDomain;
   }, [lineChartMetric, grossTransactionValueYDomain, medianPsfYDomain, medianPricePerLeaseYDomain, millionDollarPercentageYDomain]);
   
-  const stackedBarChartTitle = stackedBarChartMode === 'percentage'
-    ? '% of Sales by Price Category'
-    : '# of Sales by Price Category';
-    
-  const stackedBarChartDescription = stackedBarChartMode === 'percentage'
-    ? "This chart shows the monthly percentage breakdown of HDB resale transactions across different price brackets, with each bar summing to 100%."
-    : "This chart shows the absolute number of monthly HDB resale transactions, stacked by price category.";
+  const boxPlotDescription = "Each box shows the distribution range for the selected metric. Boxes span the interquartile range (IQR) with median line. Whiskers show data spread; dots are outliers.";
+
+  const lineChartDescription = React.useMemo(() => {
+    if (lineChartMetric === 'grossTransactionValue') return "Monthly transaction volume (bars) and total gross transaction value (line).";
+    if (lineChartMetric === 'median_psf') return "Monthly transaction volume (bars) and median price per square foot (line).";
+    if (lineChartMetric === 'median_price_per_lease') return "Monthly transaction volume (bars) and median price adjusted for remaining lease (line).";
+    return "Monthly transaction volume (bars) and percentage of flats selling above $1M (line).";
+  }, [lineChartMetric]);
+
+  const stackedBarChartDescription = React.useMemo(() => {
+    return stackedBarChartMode === 'percentage'
+      ? "Monthly breakdown of transaction values by price brackets, each bar sums to 100%."
+      : "Monthly count of transactions split by price bracket categories.";
+  }, [stackedBarChartMode]);
+
+  const stackedBarChartTitle = React.useMemo(() => {
+    return stackedBarChartMode === 'percentage' ? '% of Sales by Price Category' : '# of Sales by Price Category';
+  }, [stackedBarChartMode]);
 
   if (error && !hasData) {
     return (
@@ -207,9 +212,9 @@ const Dashboard: React.FC<DashboardProps> = ({
       </CollapsibleSection>
       
       <CollapsibleSection 
-        title={boxPlotTitles[boxPlotMetric]} 
+        title="Price Distribution by Month"
         actions={boxPlotActions}
-        description="This box plot visualizes the distribution of resale prices for each month. Each box represents the interquartile range (IQR), with the line indicating the median. Whiskers extend to the main data range, and individual points represent outliers."
+        description={boxPlotDescription}
         isOpen={sectionStates?.distribution}
         onToggle={(isOpen) => onSectionToggle?.('distribution', isOpen)}
       >
@@ -221,7 +226,7 @@ const Dashboard: React.FC<DashboardProps> = ({
       <CollapsibleSection 
         title="Market Trends"
         actions={lineChartActions}
-        description="This chart tracks two key market indicators over time: the total number of monthly transactions (blue bars) and a selectable secondary metric (line)."
+        description={lineChartDescription}
         isOpen={sectionStates?.trends}
         onToggle={(isOpen) => onSectionToggle?.('trends', isOpen)}
       >

@@ -47,11 +47,11 @@ const Tooltip: React.FC<TooltipProps> = ({ children, targetRef }) => {
   return createPortal(
     <div
       ref={tooltipRef}
-      className="absolute p-3 glass-tooltip text-slate-700 text-[11px] font-medium leading-relaxed z-50"
+      className="absolute p-3 glass-tooltip text-slate-700 text-[18px] font-medium leading-tight z-50"
       style={{
         top: `${position.top}px`,
         left: `${position.left}px`,
-        maxWidth: '220px',
+        maxWidth: '400px',
       }}
     >
       {children}
@@ -116,12 +116,12 @@ const SummaryStats: React.FC<SummaryStatsProps> = React.memo(({ stats }) => {
           <StatCard 
             label="Gross Value" 
             value={formatCompactCurrency(stats.grossTransactionValue)}
-            tooltip="The sum of all resale transaction prices for the selected filters, representing the total sales value for the filtered segment."
+            tooltip="Sum of all resale transaction prices, representing the total sales value."
           />
           <StatCard 
             label="Million-Dollar Flats" 
             value={formatPercentage(stats.millionDollarTransactionPercentage)}
-            tooltip="The percentage of resale transactions for the selected filters that were sold for S$1,000,000 or more."
+            tooltip="Percentage of resale transactions that were sold for S$1,000,000 or more."
           />
         </dl>
       </div>
@@ -143,12 +143,12 @@ const SummaryStats: React.FC<SummaryStatsProps> = React.memo(({ stats }) => {
           <StatCard 
             label="Median Price p.s.f." 
             value={formatCurrency(stats.median_psf)} 
-            tooltip="The median of all resale transaction prices divided by their floor area in square feet (p.s.f.)."
+            tooltip="Median of all resale transaction prices divided by their floor area in square feet (p.s.f.)."
           />
           <StatCard 
             label="Median Price / Lease" 
             value={formatCurrency(stats.median_price_per_lease)} 
-            tooltip="The resale price divided by the number of years remaining on the flat's 99-year lease at the time of transaction."
+            tooltip="Resale price divided by remaining lease in years. Intuitively, this represents the annual cost of 'owning' the lease over its remaining life, similar to an annual rent."
           />
           <StatCard label="Min Price p.s.f." value={formatCurrency(stats.min_psf)} />
         </dl>

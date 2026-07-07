@@ -31,8 +31,9 @@ const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
     }
   };
 
-  const titleId = `collapsible-title-${title.replace(/\s+/g, '-')}`;
-  const contentId = `collapsible-content-${title.replace(/\s+/g, '-')}`;
+  const titleText = title || 'Section';
+  const titleId = `collapsible-title-${titleText.replace(/\s+/g, '-')}`;
+  const contentId = `collapsible-content-${titleText.replace(/\s+/g, '-')}`;
 
   return (
     <section 

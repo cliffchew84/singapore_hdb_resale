@@ -1,9 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { BoxPlotStats, Outlier, BoxPlotMetric } from '../types.ts';
-import { formatCurrency, formatPsf, parseRemainingLeaseToYears } from '../utils/formatters.ts';
-
-const SQM_TO_SQFT_CONVERSION = 10.7639;
+import { formatCurrency, formatPsf, parseRemainingLeaseToYears, SQM_TO_SQFT_CONVERSION } from '../utils/formatters.ts';
 
 interface BoxPlotProps {
   data: BoxPlotStats[];
@@ -13,7 +11,7 @@ interface BoxPlotProps {
 }
 
 const yAxisLabels: Record<BoxPlotMetric, string> = {
-  resale_price: 'Resale Price',
+  price: 'Resale Price',
   price_psf: 'Price per sq. ft.',
   price_per_lease: 'Price / Lease Left (Yr)',
 };
@@ -100,16 +98,15 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
     g.attr('transform', `translate(${margin.left}, ${margin.top})`);
     xAxis?.attr('transform', `translate(0, ${innerHeight})`);
     
+    // Y-axis label removed
     g.select<SVGTextElement>('.y-axis-label')
-      .attr('x', 0)
-      .attr('y', -12) // Position in top margin
-      .text(yAxisLabels[boxPlotMetric]);
+      .style('display', 'none')
 
     const x = d3.scaleBand().range([0, innerWidth]).domain(xDomain).paddingInner(0.1).paddingOuter(0.05);
     const y = d3.scaleLinear().domain(yDomain).nice().range([innerHeight, 0]);
 
     const valueFormatter = (metric: BoxPlotMetric, value: d3.NumberValue) => {
-        if (metric === 'resale_price') return d3.format(".2s")(Number(value)).replace(/G/, "B");
+        if (metric === 'price') return d3.format(".2s")(Number(value)).replace(/G/, "B");
         if (metric === 'price_psf') return formatPsf(Number(value));
         return formatCurrency(Number(value));
     };
@@ -117,6 +114,7 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
     const numMonths = xDomain.length;
     // If > 24 months, only show January ticks. Otherwise, show Jan and Jul.
     const tickValues = xDomain.filter(d => {
+        if (typeof d !== 'string') return false;
         if (numMonths > 24) return d.endsWith('-01');
         return d.endsWith('-01') || d.endsWith('-07');
     });
@@ -134,23 +132,23 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
         return d3.timeFormat('%b')(date);
     }).tickSizeOuter(0);
 
-    xAxis?.transition().duration(500).call(xAxisGenerator)
+    xAxis?.transition().duration(350).ease(d3.easeCubic).call(xAxisGenerator)
       .call((s: any) => s.select(".domain").remove())
       .call((g: any) => g.selectAll(".tick text")
         .style("font-weight", "600")
         .style("font-size", "11px"));
 
-    yAxis?.transition().duration(500).call(d3.axisLeft(y).ticks(8).tickFormat(d => valueFormatter(boxPlotMetric, d))).call((s: any) => s.selectAll(".domain, line").remove())
+    yAxis?.transition().duration(350).ease(d3.easeCubic).call(d3.axisLeft(y).ticks(8).tickFormat(d => valueFormatter(boxPlotMetric, d))).call((s: any) => s.selectAll(".domain, line").remove())
       .call((s: any) => s.selectAll(".tick text").style("font-family", "var(--font-mono)").style("font-size", "10px").style("fill", "#64748b"));
-    grid?.lower().transition().duration(500).call(d3.axisLeft(y).ticks(8).tickSize(-innerWidth).tickFormat(() => "")).call((s: any) => s.select(".domain").remove()).call((s: any) => s.selectAll("line").attr('stroke', 'currentColor').attr('stroke-opacity', 0.05).attr('stroke-dasharray', '0'));
+    grid?.lower().transition().duration(350).ease(d3.easeCubic).call(d3.axisLeft(y).ticks(8).tickSize(-innerWidth).tickFormat(() => "")).call((s: any) => s.select(".domain").remove()).call((s: any) => s.selectAll("line").attr('stroke', 'currentColor').attr('stroke-opacity', 0.05).attr('stroke-dasharray', '0'));
     
-    const yearStartMonths = xDomain.filter(m => m.endsWith('-01')).slice(1);
+    const yearStartMonths = xDomain.filter(m => typeof m === 'string' && m.endsWith('-01')).slice(1);
     yearSeparators?.lower().selectAll('line').data(yearStartMonths, (d: any) => d)
       .join(
         (enter: any) => enter.append('line').attr('y1', 0).attr('y2', innerHeight).attr('stroke', 'currentColor').attr('stroke-opacity', 0).attr('stroke-dasharray', '3,3'),
         (update: any) => update,
-        (exit: any) => exit.transition().duration(500).attr('stroke-opacity', 0).remove()
-      ).transition().duration(500)
+        (exit: any) => exit.transition().duration(300).ease(d3.easeCubic).attr('stroke-opacity', 0).remove()
+      ).transition().duration(300).ease(d3.easeCubic)
         .attr('x1', (d: string) => (x(d) ?? 0) - (x.step() * x.paddingOuter()))
         .attr('x2', (d: string) => (x(d) ?? 0) - (x.step() * x.paddingOuter()))
         .attr('stroke-opacity', 0.2);
@@ -186,51 +184,52 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
     enterGroups.append('g').attr('class', 'outliers-g');
 
     const allGroups = enterGroups.merge(boxplotGroups);
-    boxplotGroups.exit().transition().duration(500).attr('opacity', 0).remove();
+    boxplotGroups.exit().transition().duration(300).ease(d3.easeCubic).attr('opacity', 0).remove();
     
-    allGroups.transition().duration(500).delay(100).attr('transform', d => `translate(${x(d.month) ?? 0}, 0)`).attr('opacity', 1);
+    allGroups.transition().duration(300).ease(d3.easeCubic).attr('transform', d => `translate(${x(d.month) ?? 0}, 0)`).attr('opacity', 1);
 
-    allGroups.select<SVGLineElement>('.whisker').transition().duration(500).delay(100)
+    allGroups.select<SVGLineElement>('.whisker').transition().duration(300).ease(d3.easeCubic)
       .attr('x1', boxWidth / 2).attr('x2', boxWidth / 2).attr('y1', d => y(d.min)).attr('y2', d => y(d.max))
       .attr('stroke', themeColors.stroke).attr('stroke-width', 1.5);
 
-    allGroups.select<SVGRectElement>('.box').transition().duration(500).delay(100)
+    allGroups.select<SVGRectElement>('.box').transition().duration(300).ease(d3.easeCubic)
       .attr('y', d => y(d.q3)).attr('height', d => Math.max(0, y(d.q1) - y(d.q3)))
       .attr('width', boxWidth).attr('rx', 3).attr('ry', 3)
       .attr('stroke', themeColors.stroke).attr('stroke-width', 2).style('fill', themeColors.fill);
 
-    allGroups.select<SVGLineElement>('.median-line').transition().duration(500).delay(100)
+    allGroups.select<SVGLineElement>('.median-line').transition().duration(300).ease(d3.easeCubic)
       .attr('x1', 0).attr('x2', boxWidth).attr('y1', d => y(d.median)).attr('y2', d => y(d.median))
       .attr('stroke', themeColors.median).style('stroke-width', '3px');
 
     allGroups.select<SVGGElement>('.outliers-g').each(function (d: BoxPlotStats) {
         const outlierCircles = d3.select(this)
             .selectAll<SVGCircleElement, Outlier>('circle')
-            .data(d.outliers, (o: Outlier) => `${o.town}-${o.flat_type}-${o.resale_price}`);
+            .data(d.outliers, (o: Outlier) => `${o.town}-${o.type}-${o.price}`);
         
-        outlierCircles.exit().transition().duration(200).attr('r', 0).remove();
+        outlierCircles.exit().transition().duration(300).ease(d3.easeCubic).attr('r', 0).remove();
 
         outlierCircles.enter()
             .append('circle')
-            .attr('cy', (outlier: Outlier) => y(outlier.price))
+            .attr('cy', (outlier: Outlier) => y(outlier.metricValue))
             .attr('cx', boxWidth / 2)
             .attr('r', 0)
             .merge(outlierCircles)
             .on('mouseover', function (event: MouseEvent, outlier: Outlier) {
                 event.stopPropagation();
-                d3.select(this).transition().duration(200).attr('r', 6).attr('fill', themeColors.hoverFill).attr('stroke', themeColors.hoverStroke);
+                d3.select(this).transition().duration(150).ease(d3.easeCubic).attr('r', 6).attr('fill', themeColors.hoverFill).attr('stroke', themeColors.hoverStroke);
                 tooltip.style('opacity', 1).style('display', 'block');
             })
             .on('mousemove', function (event: MouseEvent, outlier: Outlier) {
                 event.stopPropagation();
 
-                const area_sqm = outlier.floor_area_sqm ? parseFloat(outlier.floor_area_sqm) : NaN;
+                const area_sqm = outlier.area ? parseFloat(outlier.area.toString()) : NaN;
                 const area_sqft = !isNaN(area_sqm) ? Math.round(area_sqm * SQM_TO_SQFT_CONVERSION) : null;
-                const psf = !isNaN(area_sqm) && area_sqm > 0 ? outlier.resale_price / (area_sqm * SQM_TO_SQFT_CONVERSION) : null;
-                const lease_years = parseRemainingLeaseToYears(outlier.remaining_lease);
-                const price_per_lease = lease_years && lease_years > 0 ? outlier.resale_price / lease_years : null;
-                const formattedLease = outlier.remaining_lease
-                    ?.replace(/years/g, 'yrs')
+                const psf = !isNaN(area_sqm) && area_sqm > 0 ? outlier.price / (area_sqm * SQM_TO_SQFT_CONVERSION) : null;
+                const lease_years = parseRemainingLeaseToYears(outlier.lease);
+                const price_per_lease = lease_years && lease_years > 0 ? outlier.price / lease_years : null;
+                const formattedLease = outlier.lease
+                    ?.toString()
+                    .replace(/years/g, 'yrs')
                     .replace(/months/g, 'mths')
                     .replace(/ /g, '&nbsp;') || 'N/A';
 
@@ -246,7 +245,7 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
                     `<div class="p-2 min-w-[200px]">
                         <div class="text-[10px] font-bold text-slate-400 uppercase tracking-[0.2em] mb-3 pb-2 border-b border-slate-100">Outlier Transaction</div>
                         <div class="flex flex-col gap-2">
-                            ${metricRow('Resale Price', formatCurrency(outlier.resale_price), boxPlotMetric === 'resale_price')}
+                            ${metricRow('Resale Price', formatCurrency(outlier.price), boxPlotMetric === 'price')}
                             ${metricRow('Price / Sq Feet', psf ? formatPsf(psf) : 'N/A', boxPlotMetric === 'price_psf')}
                             ${metricRow('Price / Lease Left', price_per_lease ? formatCurrency(price_per_lease) : 'N/A', boxPlotMetric === 'price_per_lease')}
                             <div class="my-1 border-t border-slate-100"></div>
@@ -260,7 +259,7 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
                             </div>
                             <div class="flex justify-between items-center gap-4 whitespace-nowrap">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Room Type:</span>
-                                <span class="text-xs font-bold text-slate-700">${outlier.flat_type}</span>
+                                <span class="text-xs font-bold text-slate-700">${outlier.type}</span>
                             </div>
                             <div class="flex justify-between items-center gap-4 whitespace-nowrap">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Area:</span>
@@ -268,7 +267,7 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
                             </div>
                             <div class="flex justify-between items-center gap-4 whitespace-nowrap">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lease Left:</span>
-                                <span class="text-xs font-bold text-slate-700 font-mono">${outlier.remaining_lease?.replace(' years', 'y').replace(' months', 'm') || 'N/A'}</span>
+                                <span class="text-xs font-bold text-slate-700 font-mono">${outlier.lease?.toString().replace(' years', 'y').replace(' months', 'm') || 'N/A'}</span>
                             </div>
                         </div>
                      </div>`
@@ -277,12 +276,12 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
             })
             .on('mouseleave', function (event: MouseEvent) {
                 event.stopPropagation();
-                d3.select(this).transition().duration(200).attr('r', 3).attr('fill', themeColors.fill).attr('stroke', themeColors.stroke);
+                d3.select(this).transition().duration(150).ease(d3.easeCubic).attr('r', 3).attr('fill', themeColors.fill).attr('stroke', themeColors.stroke);
                 tooltip.style('opacity', 0).style('display', 'none');
             })
-            .transition().duration(500)
+            .transition().duration(300).ease(d3.easeCubic)
             .attr('cx', boxWidth / 2)
-            .attr('cy', (outlier: Outlier) => y(outlier.price))
+            .attr('cy', (outlier: Outlier) => y(outlier.metricValue))
             .attr('r', 3)
             .attr('fill', themeColors.fill)
             .attr('stroke', themeColors.stroke)
@@ -292,8 +291,8 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
     allGroups
         .on('mouseover', function () {
             const group = d3.select(this);
-            group.select('.box').transition().duration(150).attr('fill', themeColors.hoverFill).attr('stroke', themeColors.hoverStroke);
-            group.select('.median-line').transition().duration(150).attr('stroke', themeColors.hoverMedian);
+            group.select('.box').transition().duration(200).ease(d3.easeCubic).attr('fill', themeColors.hoverFill).attr('stroke', themeColors.hoverStroke);
+            group.select('.median-line').transition().duration(200).ease(d3.easeCubic).attr('stroke', themeColors.hoverMedian);
             tooltip.style('opacity', 1).style('display', 'block');
         }).on('mousemove', function (event, d: BoxPlotStats) {
             tooltip.html(`
@@ -302,7 +301,7 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
                     <div class="flex flex-col gap-2">
                         <div class="flex justify-between items-center gap-4 whitespace-nowrap">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Max:</span>
-                            <span class="text-xs font-bold text-slate-700 font-mono">${valueFormatter(boxPlotMetric, d.max)}</span>
+                            <span class="text-xs font-bold text-slate-700 font-mono">${valueFormatter(boxPlotMetric, d.absoluteMax)}</span>
                         </div>
                         <div class="flex justify-between items-center gap-4 whitespace-nowrap">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Q3:</span>
@@ -318,7 +317,7 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
                         </div>
                         <div class="flex justify-between items-center gap-4 whitespace-nowrap">
                             <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Min:</span>
-                            <span class="text-xs font-bold text-slate-700 font-mono">${valueFormatter(boxPlotMetric, d.min)}</span>
+                            <span class="text-xs font-bold text-slate-700 font-mono">${valueFormatter(boxPlotMetric, d.absoluteMin)}</span>
                         </div>
                     </div>
                 </div>
@@ -326,8 +325,8 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
             positionTooltip(event);
         }).on('mouseleave', function () {
             const group = d3.select(this);
-            group.select('.box').transition().duration(150).attr('fill', themeColors.fill).attr('stroke', themeColors.stroke);
-            group.select('.median-line').transition().duration(150).attr('stroke', themeColors.median);
+            group.select('.box').transition().duration(200).ease(d3.easeCubic).attr('fill', themeColors.fill).attr('stroke', themeColors.stroke);
+            group.select('.median-line').transition().duration(200).ease(d3.easeCubic).attr('stroke', themeColors.median);
             tooltip.style('opacity', 0).style('display', 'none');
         });
 

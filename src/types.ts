@@ -1,25 +1,34 @@
-// Raw record from the HDB Resale Price API
+// Raw record from the HDB Resale Parquet file
 export interface HdbResaleRecord {
   month: string;
   town: string;
-  flat_type: string;
-  resale_price: string;
-  floor_area_sqm?: string;
-  remaining_lease?: string;
-  _id?: number; // Make optional as it's not used in processing
+  type: string;
+  price: number;
+  area: number;
+  lease: number;
+  _id?: number;
+}
+
+// Filter interface for HDB data queries
+export interface HdbFilter {
+  startMonth?: string;
+  endMonth?: string;
+  selectedTowns?: string[];
+  selectedFlatTypes?: string[];
+  selectedLeaseRange?: [number, number];
 }
 
 // The metric being displayed on the Box Plot's Y-axis
-export type BoxPlotMetric = 'resale_price' | 'price_psf' | 'price_per_lease';
+export type BoxPlotMetric = 'price' | 'price_psf' | 'price_per_lease';
 
 // An outlier data point with additional context for tooltips
 export interface Outlier {
-  price: number; // This is the value of the metric being plotted
-  resale_price: number;
-  flat_type: string;
+  metricValue: number; // This is the value of the metric being plotted
+  price: number;
+  type: string;
   town: string;
-  remaining_lease?: string;
-  floor_area_sqm?: string;
+  lease: string | number | undefined;
+  area: string | number | undefined;
 }
 
 // Calculated box plot statistics for a given month
@@ -30,6 +39,8 @@ export interface BoxPlotStats {
   median: number;
   q3: number;
   max: number;
+  absoluteMin: number;
+  absoluteMax: number;
   outliers: Outlier[];
 }
 

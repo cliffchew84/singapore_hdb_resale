@@ -4,6 +4,7 @@ import { formatMonthYear } from '../utils/formatters.ts';
 interface DateRangeSelectorProps {
   allMonths: string[];
   allMonthsToFetch: string[];
+  monthsWithData: string[];
   selectedRange: [string, string];
   onChange: (range: [string, string]) => void;
   disabled?: boolean;
@@ -36,7 +37,7 @@ export const QuickFilterButton: React.FC<{
   </button>
 );
 
-const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ allMonths, allMonthsToFetch, selectedRange, onChange, disabled = false, ensureDataForRange }) => {
+const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ allMonths, allMonthsToFetch, monthsWithData, selectedRange, onChange, disabled = false, ensureDataForRange }) => {
     const [openPicker, setOpenPicker] = useState<'start' | 'end' | null>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const scrollContainerRef = useRef<HTMLDivElement>(null);
@@ -44,7 +45,10 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ allMonths, allMon
     const groupedMonths = useMemo(() => {
         const groups: { [year: string]: number[] } = {};
         allMonths.forEach(monthStr => {
-            const [year, month] = monthStr.split('-').map(Number);
+            if (typeof monthStr !== 'string') return;
+            const parts = monthStr.split('-');
+            if (parts.length !== 2) return;
+            const [year, month] = parts.map(Number);
             if (!groups[year]) groups[year] = [];
             groups[year].push(month - 1);
         });
@@ -90,6 +94,9 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ allMonths, allMon
         setOpenPicker(null);
     };
     
+    // Compute the max available month (last month with data)
+    const maxMonthWithData = monthsWithData.length > 0 ? monthsWithData[monthsWithData.length - 1] : null;
+
     const renderPicker = () => {
         if (!openPicker) return null;
         
@@ -116,11 +123,9 @@ const DateRangeSelector: React.FC<DateRangeSelectorProps> = ({ allMonths, allMon
                                     (openPicker === 'end' && monthString === endRangeStr)
                                 );
 
-                                const isDisabled = (
-                                    (openPicker === 'start' && monthString > endRangeStr) ||
-                                    (openPicker === 'end' && monthString < startRangeStr)
-                                );
-                                
+                                // For end date, disable months beyond the max available month
+                                const isDisabled = openPicker === 'end' && maxMonthWithData !== null && monthString > maxMonthWithData;
+
                                 const buttonClasses = `
                                     p-1.5 text-center text-xs rounded-md transition-colors
                                     ${isDisabled ? 'text-slate-400 dark:text-slate-500 cursor-not-allowed' : 'hover:bg-indigo-100 dark:hover:bg-indigo-500'}
