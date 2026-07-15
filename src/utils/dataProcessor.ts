@@ -10,9 +10,6 @@ import {
   DashboardData
 } from '../types.ts';
 
-// Conversion factor: square meters to square feet
-export const SQM_TO_SQFT_CONVERSION = 10.7639;
-
 /**
  * Parses a "X years Y months" string into a fractional number of years.
  * @param leaseStr The string to parse (e.g., "69 years 04 months").
@@ -74,7 +71,7 @@ export const processDashboardData = (
             flat_type: string;
             town: string;
             remaining_lease?: string;
-            floor_area_sqm?: string;
+            floor_area_sqft?: string;
         }[];
         prices: number[];
         psfValues: number[];
@@ -113,15 +110,15 @@ export const processDashboardData = (
         if (!monthData) continue; // Skip records outside xDomain
 
         const price = r.price;
-        const area_sqm = r.area;
+        const area_sqft = r.area; // Already in square feet (converted in Python preprocessing)
         const lease_years = parseRemainingLeaseToYears(r.lease);
 
         // Calculate metric value for box plot
         let metricValue: number | null = null;
         if (boxPlotMetric === 'price') {
             metricValue = price;
-        } else if (boxPlotMetric === 'price_psf' && area_sqm > 0) {
-            metricValue = price / (area_sqm * SQM_TO_SQFT_CONVERSION);
+        } else if (boxPlotMetric === 'price_psf' && area_sqft > 0) {
+            metricValue = price / area_sqft; // area is already in sqft
         } else if (boxPlotMetric === 'price_per_lease' && lease_years !== null && lease_years > 0) {
             metricValue = price / lease_years;
         }
@@ -143,12 +140,12 @@ export const processDashboardData = (
                 flat_type: r.type,
                 town: r.town,
                 remaining_lease: r.lease.toString(),
-                floor_area_sqm: r.area.toString()
+                floor_area_sqft: r.area.toString()
             });
         }
 
-        if (area_sqm > 0) {
-            const psf = price / (area_sqm * SQM_TO_SQFT_CONVERSION);
+        if (area_sqft > 0) {
+            const psf = price / area_sqft; // area is already in sqft
             monthData.psfValues.push(psf);
             allPsfValues.push(psf);
         }
@@ -221,7 +218,7 @@ export const processDashboardData = (
                     type: r.flat_type,
                     town: r.town,
                     lease: r.remaining_lease,
-                    area: r.floor_area_sqm,
+                    area: r.floor_area_sqft,
                 }));
                 
             const nonOutlierValues = m.records.filter(r => r.value >= lowerFence && r.value <= upperFence).map(r => r.value);
