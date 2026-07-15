@@ -1,7 +1,7 @@
 import React, { useRef, useEffect, useState, useMemo } from 'react';
 import * as d3 from 'd3';
 import { BoxPlotStats, Outlier, BoxPlotMetric } from '../types.ts';
-import { formatCurrency, formatPsf, parseRemainingLeaseToYears, SQM_TO_SQFT_CONVERSION } from '../utils/formatters.ts';
+import { formatCurrency, formatPsf, parseRemainingLeaseToYears } from '../utils/formatters.ts';
 
 interface BoxPlotProps {
   data: BoxPlotStats[];
@@ -222,9 +222,10 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
             .on('mousemove', function (event: MouseEvent, outlier: Outlier) {
                 event.stopPropagation();
 
-                const area_sqm = outlier.area ? parseFloat(outlier.area.toString()) : NaN;
-                const area_sqft = !isNaN(area_sqm) ? Math.round(area_sqm * SQM_TO_SQFT_CONVERSION) : null;
-                const psf = !isNaN(area_sqm) && area_sqm > 0 ? outlier.price / (area_sqm * SQM_TO_SQFT_CONVERSION) : null;
+                const area_sqft = outlier.area ? parseFloat(outlier.area.toString()) : NaN;
+                // area in outlier is already in sqft (from dataProcessor), display as-is
+                const displayArea = !isNaN(area_sqft) ? Math.round(area_sqft) : null;
+                const psf = !isNaN(area_sqft) && area_sqft > 0 ? outlier.price / area_sqft : null;
                 const lease_years = parseRemainingLeaseToYears(outlier.lease);
                 const price_per_lease = lease_years && lease_years > 0 ? outlier.price / lease_years : null;
                 const formattedLease = outlier.lease
@@ -263,7 +264,7 @@ const BoxPlot: React.FC<BoxPlotProps> = React.memo(({ data, xDomain, yDomain, bo
                             </div>
                             <div class="flex justify-between items-center gap-4 whitespace-nowrap">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Area:</span>
-                                <span class="text-xs font-bold text-slate-700 font-mono">${area_sqft ? `${area_sqft.toLocaleString()} sqft` : 'N/A'}</span>
+                                <span class="text-xs font-bold text-slate-700 font-mono">${displayArea ? `${displayArea.toLocaleString()} sqft` : 'N/A'}</span>
                             </div>
                             <div class="flex justify-between items-center gap-4 whitespace-nowrap">
                                 <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Lease Left:</span>

@@ -8,6 +8,7 @@ import { HdbResaleRecord } from '../types.ts';
 
 describe('Outlier Detection', () => {
   // Create test data with known outliers for each metric
+  // Area values are in square feet (as they come from DuckDB parquet)
   const createTestData = (): HdbResaleRecord[] => {
     const records: HdbResaleRecord[] = [];
     
@@ -18,7 +19,7 @@ describe('Outlier Detection', () => {
         town: 'COUNTY',
         type: '3 ROOM',
         price: 400000 + (Math.random() * 200000), // 400k-600k range
-        area: 80 + (Math.random() * 20), // 80-100 sqm
+        area: 700 + (Math.random() * 200), // 700-900 sqft (typical 3-room flat)
         lease: 90 + (Math.random() * 5), // 90-95 years (number)
       });
     }
@@ -28,7 +29,7 @@ describe('Outlier Detection', () => {
       town: 'COUNTY',
       type: '3 ROOM',
       price: 1500000, // Outlier for resale_price
-      area: 85,
+      area: 850, // Typical 3-room in sqft
       lease: 92,
     });
     
@@ -39,7 +40,7 @@ describe('Outlier Detection', () => {
         town: 'COUNTY',
         type: '3 ROOM',
         price: 400000 + (Math.random() * 200000),
-        area: 80 + (Math.random() * 20),
+        area: 700 + (Math.random() * 200),
         lease: 90 + (Math.random() * 5),
       });
     }
@@ -49,7 +50,7 @@ describe('Outlier Detection', () => {
       town: 'COUNTY',
       type: '3 ROOM',
       price: 500000,
-      area: 30, // Very small area -> high psf
+      area: 400, // Very small area -> high psf
       lease: 92,
     });
     
@@ -60,7 +61,7 @@ describe('Outlier Detection', () => {
         town: 'COUNTY',
         type: '3 ROOM',
         price: 400000 + (Math.random() * 200000),
-        area: 80 + (Math.random() * 20),
+        area: 700 + (Math.random() * 200),
         lease: 90 + (Math.random() * 5),
       });
     }
@@ -70,7 +71,7 @@ describe('Outlier Detection', () => {
       town: 'COUNTY',
       type: '3 ROOM',
       price: 500000,
-      area: 90,
+      area: 900,
       lease: 10, // Very old lease -> high price_per_lease
     });
     
@@ -100,7 +101,7 @@ describe('Outlier Detection', () => {
     expect(febData!.outliers.length).toBeGreaterThan(0);
     
     // The small area transaction should have high psf and be an outlier
-    const psfOutlier = febData!.outliers.find(o => String(o.area) === '30');
+    const psfOutlier = febData!.outliers.find(o => String(o.area) === '400');
     expect(psfOutlier).toBeDefined();
   });
 
